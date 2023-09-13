@@ -10,11 +10,6 @@ int Port_Door = 49153; // Begining of dynamiclly accessible ports
 
 int main(int argc, char **argv) 
 {
-    if (argc != 2) {
-        printf("\nUsage a.out <portNo>\n");
-        return 1;
-    }
-
     int bytesRcv;
     struct sockaddr clientaddr;
     socklen_t addrlen;
