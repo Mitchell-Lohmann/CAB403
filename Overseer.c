@@ -6,7 +6,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-int Port_Door = 49153 // Begining of dynamiclly accessible ports
+int Port_Door = 49153; // Begining of dynamiclly accessible ports
 
 int main(int argc, char **argv) 
 {
@@ -61,8 +61,7 @@ int main(int argc, char **argv)
         }
 
         buffer[bytesRcv] ='\0';
-        printf("\nNumber of Bytes received from client was %d.\n\nInformation
-        sent through socket --> %s\n\n", bytesRcv, buffer);
+        printf("\nNumber of Bytes received from client was %d.\n\nInformation sent through socket --> %s\n\n", bytesRcv, buffer);
         close(clientfd);
     }
 
@@ -72,6 +71,5 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    close(fd); //sockets can remain open after program termination - when open
-    socket should close it
+    close(fd); //sockets can remain open after program termination - when open socket should close it
 }

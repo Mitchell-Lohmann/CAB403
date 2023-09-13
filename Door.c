@@ -37,8 +37,8 @@ int main()
         perror("inet_pton");
     }
 
-addr.sin_family = AF_INET;
-addr.sin_port = htons(Port_Door);
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(Port_Door);
 
 // connect
     if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) == -1) 
