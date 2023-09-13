@@ -8,6 +8,8 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 
+int Port_Door = 49153 // Begining of dynamiclly accessible ports
+
 void sendMessage(int fd, const char *msg)
 {
     int len = strlen(msg);
@@ -36,7 +38,7 @@ int main()
     }
 
 addr.sin_family = AF_INET;
-addr.sin_port = htons(12345);
+addr.sin_port = htons(Port_Door);
 
 // connect
     if (connect(fd, (struct sockaddr *)&addr, sizeof(addr)) == -1) 
