@@ -1,5 +1,5 @@
 overseer:
-	gcc -o overseer Overseer.c -Wall 
+	mkae gcc -o overseer Overseer.c -Wall 
 
 simulator:
 	gcc -o simulator Simulator.c -Wall 
