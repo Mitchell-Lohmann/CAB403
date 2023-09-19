@@ -6,7 +6,13 @@
 #include <string.h>
 #include <stdlib.h>
 
-int Port_CardReader = 3001; // Begining of dynamiclly accessible ports
+
+// <summary>
+
+
+// </summary>
+//<param>      </param>
+int Port_CardReader = 3001; 
 
 int main(int argc, char **argv) 
 {
