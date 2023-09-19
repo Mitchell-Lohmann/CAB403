@@ -6,7 +6,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-int Port_Door = 49153; // Begining of dynamiclly accessible ports
+int Port_CardReader = 3001; // Begining of dynamiclly accessible ports
 
 int main(int argc, char **argv) 
 {
@@ -24,7 +24,7 @@ int main(int argc, char **argv)
 
     serverAddress.sin_family = AF_INET;
     serverAddress.sin_addr.s_addr=htonl(INADDR_ANY);
-    serverAddress.sin_port = htons(Port_Door);
+    serverAddress.sin_port = htons(Port_CardReader);
 
     if (bind(fd, (struct sockaddr *)&serverAddress, sizeof(serverAddress))==-1) 
     {
