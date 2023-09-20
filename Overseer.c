@@ -1,10 +1,13 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netinet/ip.h>
+#include <arpa/inet.h>
 #include <unistd.h>
-#include <string.h>
-#include <stdlib.h>
 
 
 // <summary>
@@ -13,6 +16,16 @@
 // </summary>
 //<param>      </param>
 //<return>     </return>
+typedef struct {
+    char security_alarm; // '-' if inactive, 'A' if active
+    pthread_mutex_t mutex;
+    pthread_cond_t cond;
+}overseer_struct;
+
+
+
+
+
 int Port_CardReader = 3001; 
 
 int main(int argc, char **argv) 
