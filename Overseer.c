@@ -28,11 +28,9 @@ typedef struct {
     pthread_cond_t cond;
 }overseer_struct;
 
-
-
-
-
 int Port_CardReader = 3001; 
+
+int Port_Overseer = 3000;
 
 int main(int argc, char **argv) 
 {
@@ -41,9 +39,6 @@ int main(int argc, char **argv)
 
     /* receive buffer */
     char buffer[BUFFER_SIZE];
-
-
-    int bytesRcv;
 
     /*Create TCP IP Socket*/
     int socketfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -66,7 +61,7 @@ int main(int argc, char **argv)
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
     addr.sin_family =AF_INET;
-    addr.sin_port = htons(Port_CardReader);
+    addr.sin_port = htons(Port_Overseer);
     addr.sin_addr.s_addr = INADDR_ANY;
     socklen_t addrlen = sizeof(addr);
 
@@ -116,12 +111,11 @@ int main(int argc, char **argv)
 		/* add null terminator to received data and print out message */
         buffer[bytesRcv] ='\0';
         printf("%s\n", buffer);
-        close(clientfd);
 
 		/* close the socket used to receive data */
 		if (close(clientfd) == -1)
 		{
-			perror("exit");
+			perror("exit()");
 			exit(1);
 		}        
     } // end while
