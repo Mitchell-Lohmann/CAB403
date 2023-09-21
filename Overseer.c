@@ -32,13 +32,48 @@ int Port_CardReader = 3001;
 
 int Port_Overseer = 3000;
 
+
+
+void recv_looped(int fd, void *buf, size_t sz)
+{
+    char *ptr = buf;
+    size_t remain = sz;
+
+    while (remain > 0)
+    {
+        ssize_t received = read(fd, ptr, remain);
+        if (received == -1)
+        {
+            perror("read()");
+            exit(1);
+        }
+        ptr+= received;
+        remain -= received;
+    }
+}
+
+
+char *receive_msg(int fd)
+{
+    uint32_t nlen;
+    recv_looped(fd, &nlen, sizeof(nlen));
+    uint32_t len = ntohl(nlen);
+
+    char *buf = malloc(len + 1);
+    buf[len] = '\0';
+    recv_looped(fd, buf, len);
+    return buf;
+}
+
+
+
 int main(int argc, char **argv) 
 {
     /* Client file descriptor */
     int clientfd;
 
     /* receive buffer */
-    char buffer[BUFFER_SIZE];
+    // char buffer[BUFFER_SIZE];
 
     /*Create TCP IP Socket*/
     int socketfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -100,17 +135,22 @@ int main(int argc, char **argv)
         }
 
         
-        size_t bytesRcv = recv(clientfd, buffer, BUFFER_SIZE, 0);
-        if (bytesRcv==-1) 
-        {
-            perror("bytesrcv");
-            exit(1);
+        // size_t bytesRcv = recv(clientfd, buffer, BUFFER_SIZE, 0);
+        // if (bytesRcv==-1) 
+        // {
+        //     perror("bytesrcv");
+        //     exit(1);
 
-        }
+        // }
 
-		/* add null terminator to received data and print out message */
-        buffer[bytesRcv] ='\0';
-        printf("%s\n", buffer);
+		// /* add null terminator to received data and print out message */
+        // buffer[bytesRcv] ='\0';
+        // printf("%s\n", buffer);
+
+        char *msg = receive_msg(clientfd);
+        
+        printf("Received this msg from client %s \n", msg);
+        free(msg);
 
          /* Shut down socket - ends communication*/
         if (shutdown(clientfd, SHUT_RDWR) == -1){
@@ -125,3 +165,4 @@ int main(int argc, char **argv)
 			exit(1);
 		}        
     } // end while
+}
