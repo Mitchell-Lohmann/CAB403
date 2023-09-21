@@ -10,8 +10,6 @@
 #include <unistd.h>
 #include <pthread.h>
 
-// Test merging with version 0.1
-
 //1023 so can add null term if req
 #define BUFFER_SIZE 1023
 
@@ -35,12 +33,13 @@ void send_looped(int fd, const void *buf, size_t sz);
 
 void send_message(int fd, const char *buf);
 
+void *normalopration_cardreader(void *param);
+
 
 int main()
 {
     /* Initialising the card */
     // card_reader card;
-    // card.response ='\0';
     
 
     /* Receive buffer */
@@ -95,6 +94,19 @@ int main()
         perror("close()");
         exit(1);
     }
+
+
+    /* Normal Operations */
+
+
+    /* Todo : Use pthread to do normal operations for card reader */
+    // pthread_t card1;
+
+    // pthread_mutex_init(&card.mutex, NULL);
+    // pthread_cond_init(&card.scanned_cond, NULL);
+    // pthread_cond_init(&card.response_cond, NULL);
+
+
 }
 
 void send_looped(int fd, const void *buf, size_t sz)
@@ -120,4 +132,27 @@ void send_message(int fd, const char *buf)
     send_looped(fd, &len, sizeof(len));
     send_looped(fd, buf, strlen(buf));
 
+}
+
+void *normalopration_cardreader(void *param)
+{
+    for (;;)
+    {   
+        card_reader * card = param;
+        pthread_mutex_lock(&card->mutex);
+        while (card->scanned == NULL)
+        {
+            /* waits on the cond-var scanned_cond */
+            pthread_cond_wait(&card->scanned_cond,&card->mutex);
+        }
+
+        // if (connect(sockfd, (const struct sockaddr *)&addr, sizeof(addr)) == -1)
+        // {
+        // perror("connect()");
+        // exit(1);
+        // }
+
+
+
+    }
 }
