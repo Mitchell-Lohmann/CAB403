@@ -112,6 +112,12 @@ int main(int argc, char **argv)
         buffer[bytesRcv] ='\0';
         printf("%s\n", buffer);
 
+         /* Shut down socket - ends communication*/
+        if (shutdown(clientfd, SHUT_RDWR) == -1){
+            perror("shutdown()");
+            exit(1);
+        }
+
 		/* close the socket used to receive data */
 		if (close(clientfd) == -1)
 		{
@@ -119,7 +125,3 @@ int main(int argc, char **argv)
 			exit(1);
 		}        
     } // end while
-
-    /* Currently not shutting down the server */
-    /* shutdown the connection - end communication to and from the socket SHUT_RDWR */
-}
