@@ -11,12 +11,17 @@
 #include <unistd.h>
 
 
+
+//1023 so can add null term if req
+#define BUFFER_SIZE 1023
 // <summary>
 
 
 // </summary>
 //<param>      </param>
 //<return>     </return>
+
+
 typedef struct {
     char security_alarm; // '-' if inactive, 'A' if active
     pthread_mutex_t mutex;
@@ -31,61 +36,96 @@ int Port_CardReader = 3001;
 
 int main(int argc, char **argv) 
 {
-    int bytesRcv;
-    struct sockaddr clientaddr;
-    socklen_t addrlen;
-    char buffer[1024];
-    struct sockaddr_in serverAddress;
-    int fd = socket(AF_INET, SOCK_STREAM, 0); //0 is default for socket implementation
+    /* Client file descriptor */
+    int clientfd;
 
-    if (fd==-1) {
-        perror("\nsocket()\n");
-        return 1;
+    /* receive buffer */
+    char buffer[BUFFER_SIZE];
+
+
+    int bytesRcv;
+
+    /*Create TCP IP Socket*/
+    int socketfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (socketfd == -1)
+    {
+        perror("socket()");
+        exit(1);
     }
 
-    serverAddress.sin_family = AF_INET;
-    serverAddress.sin_addr.s_addr=htonl(INADDR_ANY);
-    serverAddress.sin_port = htons(Port_CardReader);
+    /* enable for re-use address*/
+    int opt_enable = 1;
+    if (setsockopt(socketfd, SOL_SOCKET, SO_REUSEADDR, &opt_enable, sizeof(opt_enable)) == -1){
+        perror("setsockopt()");
+        exit(1);
+    }
 
-    if (bind(fd, (struct sockaddr *)&serverAddress, sizeof(serverAddress))==-1) 
+    /*Declare a data structure to specify the socket address (IP address + Port)
+    *memset is used to zero the struct out
+    */
+    struct sockaddr_in addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family =AF_INET;
+    addr.sin_port = htons(Port_CardReader);
+    addr.sin_addr.s_addr = INADDR_ANY;
+    socklen_t addrlen = sizeof(addr);
+
+    /* Assign a name to the socket created */
+    if (bind(socketfd, (struct sockaddr *)&addr, addrlen)==-1) 
     {
         perror("bind()");
-        return 1;
-    }
-    int clientfd;
-    if (listen(fd, 10)==-1) 
-    {
-        perror("listen()");
-        return 1;
+        exit(1);
     }
 
+    /*Place server in passive mode - listen for incoming cient request*/
+    if (listen(socketfd, 100)==-1) 
+    {
+        perror("listen()");
+        exit(1);
+    }
+
+    /* Infinite Loop */
     while (1) 
     {
-        clientfd = accept(fd,&clientaddr, &addrlen );
+        /* Generate a new socket for data transfer with the client */
+
+        /* The argument addr is a pointer to a sockaddr structure.  This structure
+        is filled in with the address of the peer socket, as known to the  com‐
+        munications  layer.   The  exact format of the address returned addr is
+        determined by the socket's address family (see socket(2)  and  the  re‐
+        spective protocol man pages).  When addr is NULL, nothing is filled in;
+        in this case, addrlen is not used, and should also be NULL.*/
+
+        /* Left Null for now might have to change */
+        clientfd = accept(socketfd, NULL, NULL );
         if (clientfd==-1) 
         {
             perror("accept()");
-            return 1;
+            exit(1);
         }
 
-        //1023 so can add null term if req
-        bytesRcv = recv(clientfd, buffer, 1023,0);
+        
+        size_t bytesRcv = recv(clientfd, buffer, BUFFER_SIZE, 0);
         if (bytesRcv==-1) 
         {
             perror("bytesrcv");
-            return 1;
+            exit(1);
+
         }
 
+		/* add null terminator to received data and print out message */
         buffer[bytesRcv] ='\0';
-        printf("\nNumber of Bytes received from client was %d.\n\nInformation sent through socket --> %s\n\n", bytesRcv, buffer);
+        printf("%s\n", buffer);
         close(clientfd);
-    }
 
-    if (shutdown(clientfd, SHUT_RDWR) ==-1) 
-    {
-        perror("shutdown()");
-        return 1;
-    }
+		/* close the socket used to receive data */
+		if (close(clientfd) == -1)
+		{
+			perror("exit");
+			exit(1);
+		}        
+    } // end while
 
-    close(fd); //sockets can remain open after program termination - when open socket should close it
+    /* Currently not shutting down the server */
+    /* shutdown the connection - end communication to and from the socket SHUT_RDWR */
 }
