@@ -10,6 +10,8 @@
 #include <unistd.h>
 #include <pthread.h>
 
+// Test merging with version 0.1
+
 //1023 so can add null term if req
 #define BUFFER_SIZE 1023
 
