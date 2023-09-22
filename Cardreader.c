@@ -36,7 +36,7 @@ void send_message(int fd, const char *buf);
 void *normalopration_cardreader(void *param);
 
 
-int main()
+int main(int argc, char **argv)
 {
     /* Initialising the card */
     // card_reader card;
