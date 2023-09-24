@@ -93,15 +93,15 @@ int main(int argc, char **argv)
     /*Declare a data structure to specify the socket address (IP address + Port)
     *memset is used to zero the struct out
     */
-    struct sockaddr_in addr;
-    memset(&addr, 0, sizeof(addr));
-    addr.sin_family =AF_INET;
-    addr.sin_port = htons(Port_Overseer);
-    addr.sin_addr.s_addr = INADDR_ANY;
-    socklen_t addrlen = sizeof(addr);
+    struct sockaddr_in servaddr;
+    memset(&servaddr, 0, sizeof(servaddr));
+    servaddr.sin_family =AF_INET;
+    servaddr.sin_port = htons(Port_Overseer);
+    servaddr.sin_addr.s_addr = INADDR_ANY;
+    socklen_t addrlen = sizeof(servaddr);
 
     /* Assign a name to the socket created */
-    if (bind(socketfd, (struct sockaddr *)&addr, addrlen)==-1) 
+    if (bind(socketfd, (struct sockaddr *)&servaddr, addrlen)==-1) 
     {
         perror("bind()");
         exit(1);
@@ -133,19 +133,6 @@ int main(int argc, char **argv)
             perror("accept()");
             exit(1);
         }
-
-        
-        // size_t bytesRcv = recv(clientfd, buffer, BUFFER_SIZE, 0);
-        // if (bytesRcv==-1) 
-        // {
-        //     perror("bytesrcv");
-        //     exit(1);
-
-        // }
-
-		// /* add null terminator to received data and print out message */
-        // buffer[bytesRcv] ='\0';
-        // printf("%s\n", buffer);
 
         char *msg = receive_msg(clientfd);
         
