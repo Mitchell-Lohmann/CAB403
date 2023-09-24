@@ -10,52 +10,92 @@
 #include <unistd.h>
 #include <pthread.h>
 
-//1023 so can add null term if req
+// 1023 so can add null term if req
 #define BUFFER_SIZE 1023
 
 /* Port Intialisation */
-int Port_CardReader = 3001; 
+int Port_CardReader = 3001;
 int Port_Overseer = 3000;
 
-/* Card reader struct initialisation */
-typedef struct card_reader_controller{
+/* Card reader shared-memory struct initialisation */
+typedef struct card_reader_controller
+{
     char scanned[16];
     pthread_mutex_t mutex;
     pthread_cond_t scanned_cond;
-    
-    char response ; // 'Y' or 'N' (or '\0' at first)
-    pthread_cond_t response_cond;
-}card_reader;
 
+    char response; // 'Y' or 'N' (or '\0' at first)
+    pthread_cond_t response_cond;
+} card_reader;
 
 /*Function Definitions*/
 void send_looped(int fd, const void *buf, size_t sz);
 
-void send_message(int fd, const char *buf);
+void send_message(const char *buf);
 
-void *normalopration_cardreader(void *param);
+void *normaloperation_cardreader(void *param);
 
+int connect_to_overseer();
 
 int main(int argc, char **argv)
 {
+
     /* Initialising the card */
-    // card_reader card;
-    
+    card_reader card;
+
+    strcpy(card.scanned, "0b9adf9c81fb959#");
+
+    /* Initialising the pthread */
+    // pthread_t card1;
+
+    /* Initialising the mutex and cond-var */
+    pthread_mutex_init(&card.mutex, NULL);
+    pthread_cond_init(&card.scanned_cond, NULL);
+    pthread_cond_init(&card.response_cond, NULL);
 
     /* Receive buffer */
     char buf[BUFFER_SIZE];
-    
+
+    strcpy(buf, "CARDREADER {id} HELLO# \n");
+
+    send_message(buf);
+
+    printf("Send this msg to overseer %s \n", buf);
+
+    /* Normal Operations */
+    /* Todo : Use pthread to do normal operations for card reader */
+    pthread_mutex_lock(&card.mutex);
+    for (;;)
+    {
+
+        if ((card.scanned[0] != '\0'))
+        {
+            strcpy(buf, "CARDREADER 101 SCANNED 0b9adf9c81fb959#");
+            send_message(buf);
+            // Receive msg
+            pthread_cond_signal(&card.response_cond);
+        }
+
+        pthread_cond_wait(&card.scanned_cond, &card.mutex);
+    }
+
+} // end main
+
+int connect_to_overseer()
+{
+    int fd;
+
     /*Create TCP IP socket */
-    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd == -1)
+    fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (fd == -1)
     {
         perror("socket()");
         exit(1);
     }
 
     /*Declare a data structure to specify the socket address (IP address + Port)
-    *memset is used to zero the struct out
-    */
+     *memset is used to zero the struct out
+     */
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
@@ -67,46 +107,14 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    /*man (2) connect*/
-    if (connect(sockfd, (const struct sockaddr *)&addr, sizeof(addr)) == -1)
+    /* Connect to overseer */
+    if (connect(fd, (const struct sockaddr *)&addr, sizeof(addr)) == -1)
     {
         perror("connect()");
         exit(1);
     }
 
-    strcpy(buf,"CARDREADER {id} HELLO# \n");
-
-    send_message(sockfd, buf);
-
-    printf("Send this msg to overseer %s \n", buf);
-
-
-    
-    /* Shut down socket - ends communication*/
-    if (shutdown(sockfd, SHUT_RDWR) == -1)
-    {
-        perror("shutdown()");
-        exit(1);
-    }
-
-    if (close(sockfd) == -1)
-    {
-        perror("close()");
-        exit(1);
-    }
-
-
-    /* Normal Operations */
-
-
-    /* Todo : Use pthread to do normal operations for card reader */
-    // pthread_t card1;
-
-    // pthread_mutex_init(&card.mutex, NULL);
-    // pthread_cond_init(&card.scanned_cond, NULL);
-    // pthread_cond_init(&card.response_cond, NULL);
-
-
+    return fd;
 }
 
 void send_looped(int fd, const void *buf, size_t sz)
@@ -121,38 +129,24 @@ void send_looped(int fd, const void *buf, size_t sz)
             perror("write()");
             exit(1);
         }
-        ptr+= sent;
+        ptr += sent;
         remain -= sent;
     }
 }
 
-void send_message(int fd, const char *buf)
+void send_message(const char *buf)
 {
+    /* Connects to overseer before sending message */
+    int fd = connect_to_overseer();
+
     uint32_t len = htonl(strlen(buf));
     send_looped(fd, &len, sizeof(len));
     send_looped(fd, buf, strlen(buf));
 
-}
-
-void *normalopration_cardreader(void *param)
-{
-    for (;;)
-    {   
-        card_reader * card = param;
-        pthread_mutex_lock(&card->mutex);
-        while (card->scanned == NULL)
-        {
-            /* waits on the cond-var scanned_cond */
-            pthread_cond_wait(&card->scanned_cond,&card->mutex);
-        }
-
-        // if (connect(sockfd, (const struct sockaddr *)&addr, sizeof(addr)) == -1)
-        // {
-        // perror("connect()");
-        // exit(1);
-        // }
-
-
-
+    /* Close connection */
+    if (close(fd) == -1)
+    {
+        perror("close()");
+        exit(1);
     }
 }
