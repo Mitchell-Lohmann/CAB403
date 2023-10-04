@@ -56,7 +56,7 @@ int main(int argc, char **argv)
      /* Check for error in input arguments */
     if(argc < 6)
     {
-        fprintf(stderr, "Usage: {id} {wait time (in microseconds)} {shared memory path} {shared memory offset} {overseer address:port}");
+        fprintf(stderr, "Missing command line arguments, {id} {wait time (in microseconds)} {shared memory path} {shared memory offset} {overseer address:port}");
         exit(1);
     }
     /* Initialise input arguments */
@@ -65,6 +65,9 @@ int main(int argc, char **argv)
     const char *shm_path = argv[3];
     int shm_offset = atoi(argv[4]);
     const char *overseer_addr = argv[5];
+    const * addr = strtok(overseer_addr, ":");
+    const * port = strtok(NULL, ";");
+    printf(port); 
 
     /* Open share memory segment */
     int shm_fd = shm_open(shm_path, O_RDWR, 0);
@@ -100,7 +103,7 @@ int main(int argc, char **argv)
             char buf[17];
             memcpy(buf, shared->scanned, 16);
             buf[16] = '\0';
-            printf ("Scanned %s\n", buf);
+            printf("Scanned %s\n", buf);
 
             /* Need to implement overseer here, has been skipped in example video. */
             shared->response = 'Y';
