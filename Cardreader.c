@@ -45,11 +45,11 @@ typedef struct
 /*Function Definitions*/
 void send_looped(int fd, const void *buf, size_t sz);
 
-void send_message(const char *buf, int overseer_port, char overseer_addr);
+void send_message(const char *buf, const int overseer_port, const char *overseer_addr);
 
 void *normaloperation_cardreader(void *param);
 
-int connect_to_overseer(int overseer_port, char overseer_addr);
+int connect_to_overseer(int overseer_port, const char *overseer_addr);
 
 int main(int argc, char **argv)
 {
@@ -60,13 +60,13 @@ int main(int argc, char **argv)
         exit(1);
     }
     /* Initialise input arguments */
-    int id = atoi(argv[1]);
-    int waittime = atoi(argv[2]);
+    //int id = atoi(argv[1]);
+    // int waittime = atoi(argv[2]);
     const char *shm_path = argv[3];
     int shm_offset = atoi(argv[4]);
     char *full_addr = argv[5];
     const char *overseer_addr = strtok(full_addr, ":");
-    const int *overseer_port = strtok(NULL, "");
+    const int overseer_port = atoi(strtok(NULL, ""));
 
     /* Open share memory segment */
     int shm_fd = shm_open(shm_path, O_RDWR, 0);
@@ -152,7 +152,7 @@ int main(int argc, char **argv)
 
 } // end main
 
-int connect_to_overseer(int overseer_port, char overseer_addr)
+int connect_to_overseer(int overseer_port, const char *overseer_addr)
 {
     int fd;
 
@@ -205,7 +205,7 @@ void send_looped(int fd, const void *buf, size_t sz)
     }
 }
 
-void send_message(const char *buf, int overseer_port, char overseer_addr)
+void send_message(const char *buf, const int overseer_port, const char *overseer_addr)
 {
     /* Connects to overseer before sending message */
     int fd = connect_to_overseer(overseer_port, overseer_addr);
