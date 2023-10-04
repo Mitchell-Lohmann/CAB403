@@ -45,11 +45,11 @@ typedef struct
 /*Function Definitions*/
 void send_looped(int fd, const void *buf, size_t sz);
 
-void send_message(const char *buf);
+void send_message(const char *buf, char overseer_port, char overseer_addr);
 
 void *normaloperation_cardreader(void *param);
 
-int connect_to_overseer();
+int connect_to_overseer(overseer_port, overseer_addr);
 
 int main(int argc, char **argv)
 {
@@ -64,10 +64,9 @@ int main(int argc, char **argv)
     int waittime = atoi(argv[2]);
     const char *shm_path = argv[3];
     int shm_offset = atoi(argv[4]);
-    const char *overseer_addr = argv[5];
-    const * addr = strtok(overseer_addr, ":");
-    const * port = strtok(NULL, ";");
-    printf(port); 
+    char full_addr[50] = argv[5];
+    const char *overseer_addr = strtok(full_addr, ":");
+    const int *overseer_port = strtok(NULL, "");
 
     /* Open share memory segment */
     int shm_fd = shm_open(shm_path, O_RDWR, 0);
@@ -131,7 +130,7 @@ int main(int argc, char **argv)
 
     strcpy(buf, "CARDREADER {id} HELLO# \n");
 
-    send_message(buf);
+    send_message(buf, overseer_port, overseer_addr);
 
     printf("Send this msg to overseer %s \n", buf);
 
@@ -144,7 +143,7 @@ int main(int argc, char **argv)
         if ((card.scanned[0] != '\0'))
         {
             strcpy(buf, "CARDREADER 101 SCANNED 0b9adf9c81fb959#");
-            send_message(buf);
+            send_message(buf, overseer_port, overseer_addr);
             // Receive msg
             pthread_cond_signal(&card.response_cond);
         }
@@ -154,7 +153,7 @@ int main(int argc, char **argv)
 
 } // end main
 
-int connect_to_overseer()
+int connect_to_overseer(int overseer_port, char overseer_addr)
 {
     int fd;
 
@@ -171,12 +170,12 @@ int connect_to_overseer()
      */
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(Port_Overseer);
-    const char *ipaddress = "127.0.0.1";
-    if (inet_pton(AF_INET, ipaddress, &addr.sin_addr) != 1)
+    //addr.sin_family = AF_INET;
+    addr.sin_port = htons(overseer_port);
+    //const char *ipaddress = "127.0.0.1";
+    if (inet_pton(AF_INET, overseer_addr, &addr.sin_addr) != 1)
     {
-        fprintf(stderr, "inet_pton(%s)\n", ipaddress);
+        fprintf(stderr, "inet_pton(%s)\n", overseer_addr);
         exit(1);
     }
 
@@ -207,10 +206,10 @@ void send_looped(int fd, const void *buf, size_t sz)
     }
 }
 
-void send_message(const char *buf)
+void send_message(const char *buf, char overseer_port, char overseer_addr)
 {
     /* Connects to overseer before sending message */
-    int fd = connect_to_overseer();
+    int fd = connect_to_overseer(overseer_port, overseer_addr);
 
     uint32_t len = htonl(strlen(buf));
     send_looped(fd, &len, sizeof(len));
