@@ -45,11 +45,11 @@ typedef struct
 /*Function Definitions*/
 void send_looped(int fd, const void *buf, size_t sz);
 
-void send_message(const char *buf, char overseer_port, char overseer_addr);
+void send_message(const char *buf, int overseer_port, char overseer_addr);
 
 void *normaloperation_cardreader(void *param);
 
-int connect_to_overseer(overseer_port, overseer_addr);
+int connect_to_overseer(int overseer_port, char overseer_addr);
 
 int main(int argc, char **argv)
 {
@@ -64,7 +64,7 @@ int main(int argc, char **argv)
     int waittime = atoi(argv[2]);
     const char *shm_path = argv[3];
     int shm_offset = atoi(argv[4]);
-    char full_addr[50] = argv[5];
+    char *full_addr = argv[5];
     const char *overseer_addr = strtok(full_addr, ":");
     const int *overseer_port = strtok(NULL, "");
 
@@ -83,8 +83,6 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    //shm_stat.st_size
-
     char *shm = mmap(NULL, shm_stat.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
     if(shm == MAP_FAILED)
     {
@@ -95,6 +93,7 @@ int main(int argc, char **argv)
     shm_cardreader *shared = (shm_cardreader *)(shm + shm_offset);
 
     pthread_mutex_lock(&shared->mutex);
+
     for(;;)
     {
         if(shared->scanned[0] != '\0')
@@ -206,7 +205,7 @@ void send_looped(int fd, const void *buf, size_t sz)
     }
 }
 
-void send_message(const char *buf, char overseer_port, char overseer_addr)
+void send_message(const char *buf, int overseer_port, char overseer_addr)
 {
     /* Connects to overseer before sending message */
     int fd = connect_to_overseer(overseer_port, overseer_addr);
