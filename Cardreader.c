@@ -18,7 +18,7 @@ int Port_CardReader = 3001;
 int Port_Overseer = 3000;
 
 /* Card reader shared-memory struct initialisation */
-typedef struct card_reader_controller
+typedef struct
 {
     char scanned[16];
     pthread_mutex_t mutex;
@@ -40,11 +40,11 @@ int connect_to_overseer();
 int main(int argc, char **argv)
 {
      /* Check for error in input arguments */
-    if(argc < 6)
-    {
-        fprintf(stderr, "Usage: {id} {wait time (in microseconds)} {shared memory path} {shared memory offset} {overseer address:port exit (1)");
-        exit(1);
-    }
+    // if(argc < 6)
+    // {
+    //     fprintf(stderr, "Usage: {id} {wait time (in microseconds)} {shared memory path} {shared memory offset} {overseer address:port exit (1)");
+    //     exit(1);
+    // }
 
     /* Initialising the card */
     card_reader card;
