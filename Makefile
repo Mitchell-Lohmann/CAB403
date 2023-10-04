@@ -1,3 +1,5 @@
+CFLAGS=-pthread -Wall
+
 overseer:
 	gcc -o overseer Overseer.c -Wall 
 
