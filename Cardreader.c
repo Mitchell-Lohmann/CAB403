@@ -10,6 +10,8 @@
 #include <unistd.h>
 #include <pthread.h>
 
+/* Testing*/
+
 // 1023 so can add null term if req
 #define BUFFER_SIZE 1023
 
