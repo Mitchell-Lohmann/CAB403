@@ -13,23 +13,9 @@
 #include <sys/stat.h> 
 #include <fcntl.h>
 
-/* Testing*/
-
-typedef struct {
-    char scanned[16];
-    pthread_mutex_t mutex;
-    pthread_cond_t scanned_cond;
-    
-    char response; // 'Y' or 'N' (or '\0' at first)
-    pthread_cond_t response_cond;
-} shm_cardreader;
 
 // 1023 so can add null term if req
 #define BUFFER_SIZE 1023
-
-/* Port Intialisation */
-int Port_CardReader = 3001;
-int Port_Overseer = 3000;
 
 /* Card reader shared-memory struct initialisation */
 typedef struct
@@ -40,15 +26,16 @@ typedef struct
 
     char response; // 'Y' or 'N' (or '\0' at first)
     pthread_cond_t response_cond;
-} card_reader;
+} shm_cardreader;
 
 /*Function Definitions*/
+
+
 void send_looped(int fd, const void *buf, size_t sz);
 
 void send_message(const char *buf, const int overseer_port, const char *overseer_addr);
 
-void *normaloperation_cardreader(void *param);
-
+//<summary> Function that helps establish connection with overseer </summary>
 int connect_to_overseer(int overseer_port, const char *overseer_addr);
 
 int main(int argc, char **argv)
@@ -59,23 +46,52 @@ int main(int argc, char **argv)
         fprintf(stderr, "Missing command line arguments, {id} {wait time (in microseconds)} {shared memory path} {shared memory offset} {overseer address:port}");
         exit(1);
     }
+
+    
     /* Initialise input arguments */
-    //int id = atoi(argv[1]);
-    // int waittime = atoi(argv[2]);
+    int id = atoi(argv[1]);
+    int waittime = atoi(argv[2]);
     const char *shm_path = argv[3];
     int shm_offset = atoi(argv[4]);
     char *full_addr = argv[5];
-    const char *overseer_addr = strtok(full_addr, ":");
-    const int overseer_port = atoi(strtok(NULL, ""));
+
+    char overseer_addr[10];
+    int overseer_port ;
+
+    // Use strtok to split the input string using ':' as the delimiter
+    char *token = strtok((char *)full_addr, ":");
+    if (token != NULL) {
+        // token now contains "127.0.0.1"
+          
+        memcpy(overseer_addr, token, 9);
+        overseer_addr[9] = '\0';
+
+        token = strtok(NULL, ":");
+        if (token != NULL) {
+            overseer_port = atoi(token); // Store the port as an integer
+        } 
+        else 
+        {
+            perror("Invalid input format of port number.\n");
+            exit(1);
+        }
+    } 
+    else 
+    {
+        perror("Invalid input format of address.\n");
+        exit(1);
+
+    }
 
     /* Open share memory segment */
-    int shm_fd = shm_open(shm_path, O_RDWR, 0);
+    int shm_fd = shm_open(shm_path, O_RDWR, 0666); // Creating for testing purposes
     
     if(shm_fd == -1){
         perror("shm_open()");
         exit(1);
     }
-
+    
+    /*fstat helps to get information of the shared memory like its size*/
     struct stat shm_stat;
     if(fstat(shm_fd, &shm_stat) == -1)
     {
@@ -83,16 +99,36 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    char *shm = mmap(NULL, shm_stat.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    char *shm = mmap(NULL, shm_stat.st_size,PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
     if(shm == MAP_FAILED)
     {
         perror("mmap()");
         exit(1);
     }
 
+    /* shared is used to access the shared memory */
     shm_cardreader *shared = (shm_cardreader *)(shm + shm_offset);
 
+    /* Initialising the mutex and cond-var */
+    pthread_mutex_init(&shared->mutex, NULL);
+    pthread_cond_init(&shared->scanned_cond, NULL);
+    pthread_cond_init(&shared->response_cond, NULL);
+
+    /* Send buffer */
+    char buff[BUFFER_SIZE];
+
+    sprintf(buff, "CARDREADER {%d} HELLO# \n", id);
+
+    send_message(buff, overseer_port, overseer_addr);
+
+    // printf("Send this msg to overseer %s \n", buff);
+
+    /*Hard coding a value into scanned for testing */
+    strcpy(shared->scanned, "0b9adf9c81fb959#");
+
     pthread_mutex_lock(&shared->mutex);
+
+    /* Normal Operation for cardreader */
 
     for(;;)
     {
@@ -101,7 +137,9 @@ int main(int argc, char **argv)
             char buf[17];
             memcpy(buf, shared->scanned, 16);
             buf[16] = '\0';
-            printf("Scanned %s\n", buf);
+
+            sprintf(buff, "CARDREADER %d SCANNED %s", id , buf);
+            send_message(buf, overseer_port, overseer_addr);
 
             /* Need to implement overseer here, has been skipped in example video. */
             shared->response = 'Y';
@@ -111,48 +149,9 @@ int main(int argc, char **argv)
     }
     close(shm_fd);
 
-    /* Initialising the card */
-    card_reader card;
-
-    strcpy(card.scanned, "0b9adf9c81fb959#");
-
-    /* Initialising the pthread */
-    // pthread_t card1;
-
-    /* Initialising the mutex and cond-var */
-    pthread_mutex_init(&card.mutex, NULL);
-    pthread_cond_init(&card.scanned_cond, NULL);
-    pthread_cond_init(&card.response_cond, NULL);
-
-    /* Receive buffer */
-    char buf[BUFFER_SIZE];
-
-    strcpy(buf, "CARDREADER {id} HELLO# \n");
-
-    send_message(buf, overseer_port, overseer_addr);
-
-    printf("Send this msg to overseer %s \n", buf);
-
-    /* Normal Operations */
-    /* Todo : Use pthread to do normal operations for card reader */
-    pthread_mutex_lock(&card.mutex);
-    for (;;)
-    {
-
-        if ((card.scanned[0] != '\0'))
-        {
-            strcpy(buf, "CARDREADER 101 SCANNED 0b9adf9c81fb959#");
-            send_message(buf, overseer_port, overseer_addr);
-            // Receive msg
-            pthread_cond_signal(&card.response_cond);
-        }
-
-        pthread_cond_wait(&card.scanned_cond, &card.mutex);
-    }
-
 } // end main
 
-int connect_to_overseer(int overseer_port, const char *overseer_addr)
+int connect_to_overseer(int overseer_port,const char *overseer_addr)
 {
     int fd;
 
@@ -169,9 +168,9 @@ int connect_to_overseer(int overseer_port, const char *overseer_addr)
      */
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
-    //addr.sin_family = AF_INET;
+    addr.sin_family = AF_INET;
     addr.sin_port = htons(overseer_port);
-    //const char *ipaddress = "127.0.0.1";
+    const char *ipaddress = overseer_addr;
     if (inet_pton(AF_INET, overseer_addr, &addr.sin_addr) != 1)
     {
         fprintf(stderr, "inet_pton(%s)\n", overseer_addr);
