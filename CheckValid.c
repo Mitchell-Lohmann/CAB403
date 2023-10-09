@@ -15,7 +15,7 @@
 #include <fcntl.h>
 
 const char *cardSearch = "db4ed0a0bfbb00ac"; // Will take input from other functions within overseer
-const char *cardID = "101"; // Will take input from other functions within overseer
+const char *cardID = "105"; // Will take input from other functions within overseer
 
 // Function declaration
 bool checkValid(const char *cardSearch, const char *cardID);
@@ -31,7 +31,7 @@ int main() {
         // Code for invalid card
     }
 
-    return 0;
+    return 0; 
 }
 
 // <summary>
@@ -42,9 +42,7 @@ bool checkValid(const char *cardSearch, const char *cardID) {
     FILE *fh1 = fopen("authorisation.txt", "r");
     FILE *fh2 = fopen("connections.txt", "r");
     char line[100];  // Assuming a line won't exceed 100 characters
-    char *doorID;
-    char *cReaderID;
-    char *cDoorID;
+    char *doorID = NULL;
 
     if (fh1 == NULL) {
         perror("Error opening authorisation file");
@@ -55,36 +53,30 @@ bool checkValid(const char *cardSearch, const char *cardID) {
         perror("Error opening connections file");
         return false;
     }
-
-    while (fgets(line, sizeof(line), fh2)) {
-        // Remove newline character if present
-        size_t len = strlen(line);
-        if (len > 0 && line[len - 1] == '\n') {
-            line[len - 1] = '\0'; 
-        }
         
-        char *token = strtok((char *)line, " ");
-        if (token != NULL) {
-            token = strtok(NULL, " ");
-            if (token != NULL) {
-                cReaderID = token; // Store reader ID
-                token = strtok(NULL, " ");
-                if (token != NULL) {
-                    cDoorID = token; // Store door ID
-                }
-            }
-            else{
-            perror("Invalid input format of port number.\n");
-            exit(1);
-            }
+    while (fgets(line, sizeof(line), fh2)) {
+        char *token = strtok(line, " "); // Split the line by space
 
-        }   
+        // Check if the first token is DOOR
+        if (strcmp(token, "DOOR") == 0) {
+            token = strtok(NULL, " "); // Split the line by space
+            if (strcmp(token, cardID) == 0)
+            {
+                token = strtok(NULL, " "); // Split the line by space
 
-        if (cReaderID == cardID) {
-            doorID = cDoorID;
+                doorID = token;
+                /* printf("Door associated with card reader is %s", doorID); */
+                break;
+            }
         }
     }
 
+    if (doorID == NULL){
+        fclose(fh1);
+        fclose(fh2);
+        /* printf("user with card %s does not have to door through card reader %s \n", cardSearch, doorID); debug */
+        return false;
+    }
 
     // Read the file line by line
     while (fgets(line, sizeof(line), fh1)) {
@@ -100,7 +92,7 @@ bool checkValid(const char *cardSearch, const char *cardID) {
             if (strstr(line, doorID) != NULL) {
                 /* Card number was found in authorisation file with access to desired door. Close file and return true */
                 fclose(fh1);
-                fcloze(fh2);
+                fclose(fh2);
                 return true; 
             }
         }
