@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
 
@@ -13,8 +14,9 @@ void check_access(const char *userId, const char *card_reader_id) {
     }
 
     char line[256]; // Assuming a line in the file is not longer than 256 characters
-    int DoorList[5]; // Assuming a user only has access to 5 doors
-    char *Door;
+    int *DoorList = (int*)malloc(5 * sizeof(int)); // Assuming a user only has access to 5 doors
+    int Door;
+    int size = 0;
 
 
     // Read each line of the file
@@ -29,6 +31,7 @@ void check_access(const char *userId, const char *card_reader_id) {
             while ((token = strtok(NULL, " "))) {
                 if (strncmp(token, "DOOR:", 5) == 0) {
                     printf("Door Access: %s\n", token + 5);
+                    DoorList[size++] = atoi(token + 5);
                 }
             }
 
@@ -36,6 +39,7 @@ void check_access(const char *userId, const char *card_reader_id) {
         }
     }
     fclose(file);
+    
 
     FILE *file2 = fopen("connections.txt", "r");
     if (file2 == NULL) {
@@ -56,12 +60,27 @@ void check_access(const char *userId, const char *card_reader_id) {
             {
                 token = strtok(NULL, " "); // Split the line by space
 
-                Door = token;
-                printf("Door associated with card reader is %s", Door);
+                Door = atoi(token);
+                printf("Door associated with card reader is %d\n", Door);
+                
+                
+
                 break;
             }
         }
     }
+
+    // Check if the Door is authorised by the user
+                for (int i =0; i<size;i++)
+                {
+                    if (DoorList[size] == Door)
+                    {
+                        printf("%d",DoorList[size]);
+                        printf("%d",Door);
+                        printf("ALLOWED#");
+                    }
+
+                }
     fclose(file);
 }
 
