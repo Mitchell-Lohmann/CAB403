@@ -69,12 +69,12 @@ char *receive_msg(int fd)
 
 int main(int argc, char **argv) 
 {
-         /* Check for error in input arguments */
-    if(argc < 8)
-    {
-        fprintf(stderr, "Missing command line arguments, {address:port} {door open duration (in microseconds)} {datagram resend delay (in microseconds)} {authorisation file} {connections file} {layout file} {shared memory path} {shared memory offset}");
-        exit(1);
-    }
+    // /* Check for error in input arguments */
+    // if(argc < 8)
+    // {
+    //     fprintf(stderr, "Missing command line arguments, {address:port} {door open duration (in microseconds)} {datagram resend delay (in microseconds)} {authorisation file} {connections file} {layout file} {shared memory path} {shared memory offset}");
+    //     exit(1);
+    // }
 
     /* Client file descriptor */
     int clientfd;
@@ -143,7 +143,7 @@ int main(int argc, char **argv)
 
         char *msg = receive_msg(clientfd);
         
-        printf("Received this msg from client %s \n", msg);
+        printf("Received msg from client %s \n", msg);
         free(msg);
 
          /* Shut down socket - ends communication*/
