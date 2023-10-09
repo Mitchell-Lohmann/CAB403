@@ -14,6 +14,8 @@
 
 #define BUFFER_SIZE 1024
 
+#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
+
 
 /* Overseer shared memory structure */
 typedef struct {
@@ -203,7 +205,7 @@ void *handleCardReader(void * p_client_socket) {
         perror("recv()");
         exit(1);
     }
-
+    fflush(stdout);
     // Parse the received message (e.g., "CARDREADER {id} HELLO#")
     // Check if initialisation message
     if (strstr(buffer, "HELLO#") != NULL) {
@@ -225,6 +227,25 @@ void *handleCardReader(void * p_client_socket) {
         // Handle the extracted card reader ID and scanned code
         printf("Received card reader ID: %d\n", id);
         printf("Received scanned code: %s\n", scanned);
+
+        bytes = 0;
+        // open file 
+        FILE *fp = fopen("authorisation.txt","r");
+        if (fp == NULL)
+        {
+            perror("Error fopen()");
+            exit(1);
+        }
+        // read contents of file 
+        while ((bytes = fread(buffer, ARRAY_SIZE(buffer), BUFFER_SIZE , fp) > 0))
+        {
+            printf("read %zu bytes\n", bytes);
+            printf("%s", buffer);
+        }
+
+
+
+
     }
     else
     {
