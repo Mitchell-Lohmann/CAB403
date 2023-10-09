@@ -24,10 +24,6 @@ typedef struct {
     pthread_cond_t cond;
 }shm_overseer;
 
-// int Port_CardReader = 3001; 
-
-// int Port_Overseer = 3000;
-
 /* Function Definitions */
 
 void recv_looped(int fd, void *buf, size_t sz)
@@ -206,6 +202,8 @@ void *handleCardReader(void * p_client_socket) {
         exit(1);
     }
     fflush(stdout);
+
+    /* Validation */
     // Parse the received message (e.g., "CARDREADER {id} HELLO#")
     // Check if initialisation message
     if (strstr(buffer, "HELLO#") != NULL) {
@@ -242,9 +240,6 @@ void *handleCardReader(void * p_client_socket) {
             printf("read %zu bytes\n", bytes);
             printf("%s", buffer);
         }
-
-
-
 
     }
     else
