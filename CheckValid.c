@@ -100,7 +100,7 @@ bool checkValid(const char *cardSearch, const char *cardID) {
             if (strstr(line, doorID) != NULL) {
                 /* Card number was found in authorisation file with access to desired door. Close file and return true */
                 fclose(fh1);
-                fcloze(fh2);
+                fclose(fh2);
                 return true; 
             }
         }

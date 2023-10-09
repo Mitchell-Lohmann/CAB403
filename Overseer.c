@@ -220,7 +220,7 @@ void *handleCardReader(void * p_client_socket) {
         }
      
     }
-    else if (sscanf(buffer, "CARDREADER %d SCANNED %s#", &id, scanned) == 2) 
+    else if (sscanf(buffer, "CARDREADER %d SCANNED %[^#]#", &id, scanned) == 2) 
     {
         // Handle the extracted card reader ID and scanned code
         printf("Received card reader ID: %d\n", id);
