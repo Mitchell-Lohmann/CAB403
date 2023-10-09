@@ -12,21 +12,15 @@
 
 
 
-//1023 so can add null term if req
-#define BUFFER_SIZE 1023
-// <summary>
+#define BUFFER_SIZE 1024
 
 
-// </summary>
-//<param>      </param>
-//<return>     </return>
-
-
+/* Overseer shared memory structure */
 typedef struct {
     char security_alarm; // '-' if inactive, 'A' if active
     pthread_mutex_t mutex;
     pthread_cond_t cond;
-}overseer_struct;
+}shm_overseer;
 
 int Port_CardReader = 3001; 
 
@@ -69,12 +63,51 @@ char *receive_msg(int fd)
 
 int main(int argc, char **argv) 
 {
-    // /* Check for error in input arguments */
-    // if(argc < 8)
-    // {
-    //     fprintf(stderr, "Missing command line arguments, {address:port} {door open duration (in microseconds)} {datagram resend delay (in microseconds)} {authorisation file} {connections file} {layout file} {shared memory path} {shared memory offset}");
-    //     exit(1);
-    // }
+    /* Check for error in input arguments */
+    if(argc < 8)
+    {
+        fprintf(stderr, "Missing command line arguments, {address:port} {door open duration (in microseconds)} {datagram resend delay (in microseconds)} {authorisation file} {connections file} {layout file} {shared memory path} {shared memory offset}");
+        exit(1);
+    }
+    
+    /* Initialise input arguments */
+
+    char *full_addr = argv[1];
+    char addr[10];
+    int port ;
+    int door_open_duration = atoi(argv[2]);
+    int datagram_resend_delay = atoi(argv[3]);
+    char *authorisation_file = argv[4];
+    char *connection_file = argv[5];
+    char *layout_file = argv[6];
+    const char *shm_path = argv[7];
+    int shm_offset = atoi(argv[8]);
+
+    
+    // Use strtok to split the input string using ':' as the delimiter
+    char *token = strtok((char *)full_addr, ":");
+    if (token != NULL) {
+        // token now contains "127.0.0.1"
+          
+        memcpy(addr, token, 9);
+        addr[9] = '\0';
+
+        token = strtok(NULL, ":");
+        if (token != NULL) {
+            port = atoi(token); // Store the port as an integer
+        } 
+        else 
+        {
+            perror("Invalid input format of port number.\n");
+            exit(1);
+        }
+    } 
+    else 
+    {
+        perror("Invalid input format of address.\n");
+        exit(1);
+
+    }
 
     /* Client file descriptor */
     int clientfd;
