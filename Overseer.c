@@ -22,11 +22,11 @@ typedef struct {
     pthread_cond_t cond;
 }shm_overseer;
 
-int Port_CardReader = 3001; 
+// int Port_CardReader = 3001; 
 
-int Port_Overseer = 3000;
+// int Port_Overseer = 3000;
 
-
+/* Function Definitions */
 
 void recv_looped(int fd, void *buf, size_t sz)
 {
@@ -59,7 +59,7 @@ char *receive_msg(int fd)
     return buf;
 }
 
-
+void *handleCardReader(void * p_client_socket) ;
 
 int main(int argc, char **argv) 
 {
@@ -69,19 +69,19 @@ int main(int argc, char **argv)
         fprintf(stderr, "Missing command line arguments, {address:port} {door open duration (in microseconds)} {datagram resend delay (in microseconds)} {authorisation file} {connections file} {layout file} {shared memory path} {shared memory offset}");
         exit(1);
     }
-    
+
     /* Initialise input arguments */
 
     char *full_addr = argv[1];
     char addr[10];
     int port ;
-    int door_open_duration = atoi(argv[2]);
-    int datagram_resend_delay = atoi(argv[3]);
-    char *authorisation_file = argv[4];
-    char *connection_file = argv[5];
-    char *layout_file = argv[6];
-    const char *shm_path = argv[7];
-    int shm_offset = atoi(argv[8]);
+    //int door_open_duration = atoi(argv[2]);
+    //int datagram_resend_delay = atoi(argv[3]);
+    //char *authorisation_file = argv[4];
+    //char *connection_file = argv[5];
+    //char *layout_file = argv[6];
+    //const char *shm_path = argv[7];
+    //int shm_offset = atoi(argv[8]);
 
     
     // Use strtok to split the input string using ':' as the delimiter
@@ -109,15 +109,21 @@ int main(int argc, char **argv)
 
     }
 
-    /* Client file descriptor */
-    int clientfd;
 
-    /* receive buffer */
-    // char buffer[BUFFER_SIZE];
+
+    /* Client file descriptor */
+    int client_socket, server_socket;
+
+    /*Declare a data structure to specify the socket address (IP address + Port)
+    *memset is used to zero the struct out */
+    struct sockaddr_in servaddr, clientaddr, addr_size;
+    memset(&servaddr, 0, sizeof(servaddr));
+    memset(&servaddr, 0, sizeof(clientaddr));
+
 
     /*Create TCP IP Socket*/
-    int socketfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (socketfd == -1)
+    server_socket = socket(AF_INET, SOCK_STREAM, 0);
+    if (server_socket == -1)
     {
         perror("socket()");
         exit(1);
@@ -125,30 +131,26 @@ int main(int argc, char **argv)
 
     /* enable for re-use address*/
     int opt_enable = 1;
-    if (setsockopt(socketfd, SOL_SOCKET, SO_REUSEADDR, &opt_enable, sizeof(opt_enable)) == -1){
+    if (setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &opt_enable, sizeof(opt_enable)) == -1){
         perror("setsockopt()");
         exit(1);
     }
 
-    /*Declare a data structure to specify the socket address (IP address + Port)
-    *memset is used to zero the struct out
-    */
-    struct sockaddr_in servaddr;
-    memset(&servaddr, 0, sizeof(servaddr));
+    /* Initialise the address struct*/
     servaddr.sin_family =AF_INET;
-    servaddr.sin_port = htons(Port_Overseer);
+    servaddr.sin_port = htons(port);
     servaddr.sin_addr.s_addr = INADDR_ANY;
     socklen_t addrlen = sizeof(servaddr);
 
     /* Assign a name to the socket created */
-    if (bind(socketfd, (struct sockaddr *)&servaddr, addrlen)==-1) 
+    if (bind(server_socket, (struct sockaddr *)&servaddr, addrlen)==-1) 
     {
         perror("bind()");
         exit(1);
     }
 
     /*Place server in passive mode - listen for incoming cient request*/
-    if (listen(socketfd, 100)==-1) 
+    if (listen(server_socket, 100)==-1) 
     {
         perror("listen()");
         exit(1);
@@ -158,38 +160,81 @@ int main(int argc, char **argv)
     while (1) 
     {
         /* Generate a new socket for data transfer with the client */
-
-        /* The argument addr is a pointer to a sockaddr structure.  This structure
-        is filled in with the address of the peer socket, as known to the  com‐
-        munications  layer.   The  exact format of the address returned addr is
-        determined by the socket's address family (see socket(2)  and  the  re‐
-        spective protocol man pages).  When addr is NULL, nothing is filled in;
-        in this case, addrlen is not used, and should also be NULL.*/
-
-        /* Left Null for now might have to change */
-        clientfd = accept(socketfd, NULL, NULL );
-        if (clientfd==-1) 
+        
+        client_socket = accept(server_socket, (struct sockaddr *)&clientaddr, (socklen_t *)&addr_size);
+        if (client_socket==-1) 
         {
             perror("accept()");
             exit(1);
         }
 
-        char *msg = receive_msg(clientfd);
-        
-        printf("Received msg from client %s \n", msg);
-        free(msg);
+        /* Initialise pthreads */
+        pthread_t cardreader_thread;
+        int *pclient = malloc(sizeof(int));
+        *pclient = client_socket;
 
-         /* Shut down socket - ends communication*/
-        if (shutdown(clientfd, SHUT_RDWR) == -1){
-            perror("shutdown()");
+
+        if (pthread_create(&cardreader_thread,NULL, handleCardReader, pclient) != 0) 
+        {
+            perror("pthread_create()");
             exit(1);
         }
 
-		/* close the socket used to receive data */
-		if (close(clientfd) == -1)
-		{
-			perror("exit()");
-			exit(1);
-		}        
+        
     } // end while
+} // end main
+
+
+// <summary>
+//Function to handle an individual card reader connection
+// </summary>
+void *handleCardReader(void * p_client_socket) {
+    int client_socket = *((int*)p_client_socket);
+    free(p_client_socket); // we dont need it anymore
+    char buffer[BUFFER_SIZE];
+    int id;
+    char scanned[17];
+    ssize_t bytes;
+
+    bytes = recv(client_socket, buffer, BUFFER_SIZE, 0);
+    buffer[bytes] = '\0';
+    if (bytes == -1)
+    {
+        perror("recv()");
+        exit(1);
+    }
+
+    // Parse the received message (e.g., "CARDREADER {id} HELLO#")
+    // Check if initialisation message
+    if (strstr(buffer, "HELLO#") != NULL) {
+        
+        printf("Card reader initialised succefully");
+        printf("Received card reader ID: %d\n", id);
+     
+    }
+    else if (sscanf(buffer, "CARDREADER %d SCANNED %s#", &id, scanned) == 2) 
+    {
+        // Handle the extracted card reader ID and scanned code
+        printf("Received card reader ID: %d\n", id);
+        printf("Received scanned code: %s\n", scanned);
+    }
+    else
+    {
+        // Invalid message format
+        printf("Invalid message format from card reader.\n");
+    }
+    // Close the connection
+    /* Shut down socket - ends communication*/
+    if (shutdown(client_socket, SHUT_RDWR) == -1){
+        perror("shutdown()");
+        exit(1);
+    }
+
+	/* close the socket used to receive data */
+	if (close(client_socket) == -1)
+	{
+	    perror("exit()");
+		exit(1);
+	}   
+    return NULL;
 }
