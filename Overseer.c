@@ -64,11 +64,11 @@ void *handleCardReader(void * p_client_socket) ;
 int main(int argc, char **argv) 
 {
     /* Check for error in input arguments */
-    if(argc < 8)
-    {
-        fprintf(stderr, "Missing command line arguments, {address:port} {door open duration (in microseconds)} {datagram resend delay (in microseconds)} {authorisation file} {connections file} {layout file} {shared memory path} {shared memory offset}");
-        exit(1);
-    }
+    // if(argc < 8)
+    // {
+    //     fprintf(stderr, "Missing command line arguments, {address:port} {door open duration (in microseconds)} {datagram resend delay (in microseconds)} {authorisation file} {connections file} {layout file} {shared memory path} {shared memory offset}");
+    //     exit(1);
+    // }
 
     /* Initialise input arguments */
 
@@ -207,9 +207,17 @@ void *handleCardReader(void * p_client_socket) {
     // Parse the received message (e.g., "CARDREADER {id} HELLO#")
     // Check if initialisation message
     if (strstr(buffer, "HELLO#") != NULL) {
-        
-        printf("Card reader initialised succefully");
+
+        if (sscanf(buffer, "CARDREADER %d HELLO#", &id) == 1)
+        {
+        printf("Card reader initialised succefully\n");
         printf("Received card reader ID: %d\n", id);
+        }
+        else
+        {
+            // Invalid message format
+            printf("Invalid message format from card reader.\n");
+        }
      
     }
     else if (sscanf(buffer, "CARDREADER %d SCANNED %s#", &id, scanned) == 2) 
