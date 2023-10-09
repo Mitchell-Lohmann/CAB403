@@ -44,13 +44,13 @@ void check_access(const char *userId, const char *card_reader_id) {
     }
 
 
+    printf("Card reader ID: %s\n", card_reader_id );
     // Read each line of the file
     while (fgets(line, sizeof(line), file2)) {
         char *token = strtok(line, " "); // Split the line by space
 
         // Check if the first token is DOOR
         if (strcmp(token, "DOOR") == 0) {
-            printf("Card reader ID: %s\n", card_reader_id );
             token = strtok(NULL, " "); // Split the line by space
             if (strcmp(token, card_reader_id) == 0)
             {
