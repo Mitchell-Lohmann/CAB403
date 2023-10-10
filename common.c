@@ -1,4 +1,17 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/ip.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <pthread.h>
+#include <sys/mman.h> 
+#include <sys/stat.h> 
+#include <fcntl.h>
 #include "common.h"
 
 
@@ -58,7 +71,6 @@ int connect_to_overseer(int overseer_port,const char *overseer_addr)
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
     addr.sin_port = htons(overseer_port);
-    const char *ipaddress = overseer_addr;
     if (inet_pton(AF_INET, overseer_addr, &addr.sin_addr) != 1)
     {
         fprintf(stderr, "inet_pton(%s)\n", overseer_addr);

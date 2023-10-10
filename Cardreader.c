@@ -12,7 +12,7 @@
 #include <sys/mman.h> 
 #include <sys/stat.h> 
 #include <fcntl.h>
-
+#include "common.h"
 
 // 1023 so can add null term if req
 #define BUFFER_SIZE 1023
@@ -96,8 +96,6 @@ int main(int argc, char **argv)
     
     // printf("Send this msg to overseer %s \n", buff);
 
-
-
     /* Open share memory segment */
     int shm_fd = shm_open(shm_path, O_RDWR, 0666); // Creating for testing purposes
     
@@ -150,68 +148,3 @@ int main(int argc, char **argv)
     close(shm_fd);
 
 } // end main
-
-
-
-//<summary> 
-//Function that helps establish connection with overseer 
-//</summary>
-int connect_to_overseer(int overseer_port,const char *overseer_addr)
-{
-    int fd;
-
-    /*Create TCP IP socket */
-    fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (fd == -1)
-    {
-        perror("socket()");
-        exit(1);
-    }
-
-    /*Declare a data structure to specify the socket address (IP address + Port)
-     *memset is used to zero the struct out
-     */
-    struct sockaddr_in addr;
-    memset(&addr, 0, sizeof(addr));
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(overseer_port);
-    const char *ipaddress = overseer_addr;
-    if (inet_pton(AF_INET, overseer_addr, &addr.sin_addr) != 1)
-    {
-        fprintf(stderr, "inet_pton(%s)\n", overseer_addr);
-        exit(1);
-    }
-
-    /* Connect to overseer */
-    if (connect(fd, (const struct sockaddr *)&addr, sizeof(addr)) == -1)
-    {
-        perror("connect()");
-        exit(1);
-    }
-
-    return fd;
-}
-
-
-//<summary> 
-//Function that helps send message to overseer 
-//</summary>
-void send_message(const char *buf, const int overseer_port, const char *overseer_addr)
-{
-    /* Connects to overseer before sending message */
-    int fd = connect_to_overseer(overseer_port, overseer_addr);
- 
-    /* Sends the message in the buffer*/
-    if (send(fd, buf, strlen(buf), 0) == -1)
-    {
-        perror("send()");
-        exit(1);
-    }
-
-    /* Close connection */
-    if (close(fd) == -1)
-    {
-        perror("close()");
-        exit(1);
-    }
-}
