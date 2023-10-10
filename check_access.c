@@ -74,14 +74,7 @@ bool check_access(const char *userId, const char *card_reader_id)
         }
     }
 
-    // Check if the Door is authorised by the user
-    for (int i = 0; i < size; i++)
-    {
-        if (DoorList[i] == Door)
-        {
-            return true;
-        }
-    }
+    
 
     fclose(file);
     return false;
