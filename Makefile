@@ -1,31 +1,31 @@
 CFLAGS=-pthread -Wall
 
-overseer:
-	gcc -o overseer Overseer.c -Wall 
+overseer: Overseer.c
+	gcc -o overseer Overseer.c common.c -Wall 
 
 simulator:
-	gcc -o simulator Simulator.c -Wall 
+	gcc -o simulator Simulator.c common.c -Wall 
 
 firealarm:
-	gcc -o firealarm Firealarm.c -Wall 
+	gcc -o firealarm Firealarm.c common.c -Wall 
 
 cardreader:
-	gcc -o cardreader Cardreader.c -Wall 
+	gcc -o cardreader Cardreader.c common.c -Wall 
 
-door:
-	gcc -o door Door.c -Wall 
+door: Door.c
+	gcc -o door Door.c common.c -Wall 
 
 callpoint:
-	gcc -o callpoint Callpoint.c -Wall 
+	gcc -o callpoint Callpoint.c common.c -Wall 
 
 tempsensor:
-	gcc -o tempsensor Tempsensor.c -Wall 
+	gcc -o tempsensor Tempsensor.c common.c -Wall 
 
 elevator:
-	gcc -o elevator Elevator.c -Wall 
+	gcc -o elevator Elevator.c common.c -Wall 
 
 destselect:
-	gcc -o destselect Destselect.c -Wall 
+	gcc -o destselect Destselect.c common.c -Wall 
 
 camera:
-	gcc -o camera Camera.c -Wall 
+	gcc -o camera Camera.c common.c -Wall 
