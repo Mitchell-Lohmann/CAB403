@@ -4,15 +4,15 @@
 #include <stdbool.h>
 
 const char *userId = "db4ed0a0bfbb00ac"; // Will take input from other functions within overseer
-const char *card_reader_id = "105";
+const char *card_reader_id = "103";
 
-void check_access(const char *userId, const char *card_reader_id)
+bool check_access(const char *userId, const char *card_reader_id)
 {
     FILE *file = fopen("authorisation.txt", "r");
     if (file == NULL)
     {
         perror("Failed to open the authentication file");
-        return;
+        return false;
     }
 
     char line[256];                                 // Assuming a line in the file is not longer than 256 characters
@@ -49,7 +49,7 @@ void check_access(const char *userId, const char *card_reader_id)
     if (file2 == NULL)
     {
         perror("Failed to open the authentication file");
-        return;
+        return false;
     }
 
     printf("Card reader ID: %s\n", card_reader_id);
@@ -79,20 +79,24 @@ void check_access(const char *userId, const char *card_reader_id)
     {
         if (DoorList[i] == Door)
         {
-            
-            printf("ALLOWED#\n");
-        }
-        else{
-            printf("DENIED#\n");
+            return true;
         }
     }
+
     fclose(file);
+    return false;
+
 }
 
 int main()
 {
 
-    check_access(userId, card_reader_id);
-
+    if (check_access(userId, card_reader_id)) {
+        printf("Access Granted: User with card number '%s' is granted access through card reader '%s'.\n", userId, card_reader_id);
+        // Code for valid card
+    } else {
+        printf("Access Denied: User with card number '%s' is denied access through card reader '%s'.\n", userId, card_reader_id);
+        // Code for invalid card
+    }
     return 0;
 }

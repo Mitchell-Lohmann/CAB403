@@ -15,7 +15,7 @@
 #include <fcntl.h>
 
 const char *cardSearch = "db4ed0a0bfbb00ac"; // Will take input from other functions within overseer
-const char *cardID = "101"; // Will take input from other functions within overseer
+const char *cardID = "103"; // Will take input from other functions within overseer
 
 // Function declaration
 bool checkValid(const char *cardSearch, const char *cardID);
@@ -23,7 +23,6 @@ bool checkValid(const char *cardSearch, const char *cardID);
 /* Main loop to test function*/
 int main() {
 
-    printf("Valid card, valid card reader \n");
     if (checkValid(cardSearch, cardID)) {
         printf("Access Granted: User with card number '%s' is granted access through card reader '%s'.\n", cardSearch, cardID);
         // Code for valid card
@@ -43,7 +42,7 @@ bool checkValid(const char *cardSearch, const char *cardID) {
     FILE *fhB = fopen("connections.txt", "r");
     char lineA[100];  // Assuming a line won't exceed 100 characters
     char lineB[100];  // Assuming a line won't exceed 100 characters
-    char *doorID = NULL;
+    int doorID = -1;
 
     if (fhA == NULL) {
         perror("Error opening authorisation file");
@@ -64,43 +63,45 @@ bool checkValid(const char *cardSearch, const char *cardID) {
             if (strcmp(token, cardID) == 0)
             {
                 token = strtok(NULL, " "); // Split the line by space
-                doorID = strdup(token); // Allocate memory and copy the value
+                doorID = atoi(token); // Allocate memory and copy the value
                 break;
             }
         }
     }
 
-    if (doorID == NULL){
+    if (doorID == -1){
         printf("Could not match card reader ID with door ID \n"); // Debug line
-        free(doorID);
         fclose(fhA);
         fclose(fhB);
         return false;
     }
 
     // Read the file line by line
-    while (fgets(lineB, sizeof(lineB), fhA)) {
-        // Remove newline character if present
-        size_t len = strlen(lineB);
-        if (len > 0 && lineB[len - 1] == '\n') {
-            lineB[len - 1] = '\0'; 
-        }
-
-        // Check if the card number is found in the line
-        if (strstr(lineB, cardSearch) != NULL) {
-            // If found check if the door is also found in the same line
-            if (strcmp(lineB, doorID) != 0) {
-                /* Card number was found in authorisation file with access to desired door. Close file and return true */
-                free(doorID);
-                fclose(fhA);
-                fclose(fhB);
-                return true; 
+    while (fgets(lineB, sizeof(lineB), fhA))
+    {
+        char *token = strtok(lineB, " "); // Split the line by space
+        // Check if the first token is the user ID we're looking for
+        if (strcmp(token, cardSearch) == 0)
+        {
+            // Read and print the doors to which the user has access
+            while ((token = strtok(NULL, " ")))
+            {
+                if (strncmp(token, "DOOR:", 5) == 0)
+                {
+                    if (doorID == atoi(token + 5))
+                    {
+                        fclose(fhA);
+                        fclose(fhB);
+                        return true;
+                    }
+                }
             }
+
+            break; // No need to continue reading the file
         }
     }
 
     /* Card number was not found in authorisation file. Close file and return false */
-    free(doorID);
     fclose(fhA);
     fclose(fhB);
     return false;
