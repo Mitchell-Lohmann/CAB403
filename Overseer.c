@@ -190,7 +190,7 @@ int main(int argc, char **argv)
 //Function to handle an individual card reader connection
 // </summary>
 void *handleCardReader(void * p_client_socket) {
-    // char* access;
+    char* access;
     int client_socket = *((int*)p_client_socket);
     free(p_client_socket); // we dont need it anymore
     char buffer[BUFFER_SIZE];
@@ -206,6 +206,7 @@ void *handleCardReader(void * p_client_socket) {
         exit(1);
     }
     fflush(stdout);
+    
 
     /* Validation */
     // Parse the received message (e.g., "CARDREADER {id} HELLO#")
@@ -214,8 +215,8 @@ void *handleCardReader(void * p_client_socket) {
 
         if (sscanf(buffer, "CARDREADER %s HELLO#", id) == 1)
         {
-        printf("Card reader initialised succefully\n");
-        printf("Received card reader ID: %s\n", id);
+        // printf("Card reader initialised succefully\n");
+        // printf("Received card reader ID: %s\n", id);
         }
         else
         {
@@ -227,25 +228,35 @@ void *handleCardReader(void * p_client_socket) {
     else if (sscanf(buffer, "CARDREADER %s SCANNED %[^#]#", id, scanned) == 2) 
     {
         // Handle the extracted card reader ID and scanned code
-        printf("Received card reader ID: %s\n", id);
-        printf("Received scanned code: %s\n", scanned);
+        // printf("Received card reader ID: %s\n", id);
+        // printf("Received scanned code: %s\n", scanned);
 
         if (checkValid(scanned, id) == true)
         {
-            printf("ALLOWED#");
+            access = "ALLOWED#";
+
         }
         else
         {
-            printf("NOTALLOWED#");
+            access = "DENIED#";
         }
-        printf("Over");
-
+        /* Sends the message back to card_reader*/
+        if (send(client_socket, access, strlen(access), 0) == -1)
+        {
+            perror("send()");
+            exit(1);
+        }
     }
     else
     {
         // Invalid message format
         printf("Invalid message format from card reader.\n");
     }
+
+    // Connection to Door 
+
+
+
     // Close the connection
     /* Shut down socket - ends communication*/
     if (shutdown(client_socket, SHUT_RDWR) == -1){
@@ -264,10 +275,10 @@ void *handleCardReader(void * p_client_socket) {
 
 
 bool checkValid(const char *cardSearch, const char *cardID) {
-    printf("Hey im in the function");
     FILE *fh1 = fopen("authorisation.txt", "r");
     FILE *fh2 = fopen("connections.txt", "r");
-    char line[100];  // Assuming a line won't exceed 100 characters
+    char lineA[100];  // Assuming a line won't exceed 100 characters
+    char lineB[100];  // Assuming a line won't exceed 100 characters
     char *doorID = NULL;
 
     if (fh1 == NULL) {
@@ -280,8 +291,8 @@ bool checkValid(const char *cardSearch, const char *cardID) {
         return false;
     }
         
-    while (fgets(line, sizeof(line), fh2)) {
-        char *token = strtok(line, " "); // Split the line by space
+    while (fgets(lineA, sizeof(lineA), fh2)) {
+        char *token = strtok(lineA, " "); // Split the line by space
 
         // Check if the first token is DOOR
         if (strcmp(token, "DOOR") == 0) {
@@ -291,7 +302,6 @@ bool checkValid(const char *cardSearch, const char *cardID) {
                 token = strtok(NULL, " "); // Split the line by space
 
                 doorID = token;
-                /* printf("Door associated with card reader is %s", doorID); */
                 break;
             }
         }
@@ -300,22 +310,23 @@ bool checkValid(const char *cardSearch, const char *cardID) {
     if (doorID == NULL){
         fclose(fh1);
         fclose(fh2);
-        /* printf("user with card %s does not have to door through card reader %s \n", cardSearch, doorID); debug */
+        printf("user with card %s does not have to door through card reader %s \n", cardSearch, doorID); 
         return false;
     }
 
     // Read the file line by line
-    while (fgets(line, sizeof(line), fh1)) {
+    while (fgets(lineB, sizeof(lineB), fh1)) {
         // Remove newline character if present
-        size_t len = strlen(line);
-        if (len > 0 && line[len - 1] == '\n') {
-            line[len - 1] = '\0'; 
+        
+        size_t len = strlen(lineB);
+        if (len > 0 && lineB[len - 1] == '\n') {
+            lineB[len - 1] = '\0'; 
         }
 
         // Check if the card number is found in the line
-        if (strstr(line, cardSearch) != NULL) {
+        if (strstr(lineB, cardSearch) != NULL) {
             // If found check if the door is also found in the same line
-            if (strstr(line, doorID) != NULL) {
+            if (strstr(lineB, doorID) != NULL) {
                 /* Card number was found in authorisation file with access to desired door. Close file and return true */
                 fclose(fh1);
                 fclose(fh2);
