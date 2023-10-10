@@ -9,6 +9,7 @@
 #include <netinet/ip.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <stdbool.h>
 
 
 
@@ -58,6 +59,8 @@ char *receive_msg(int fd)
 }
 
 void *handleCardReader(void * p_client_socket) ;
+
+bool checkValid(const char *cardSearch, const char *cardID);
 
 int main(int argc, char **argv) 
 {
@@ -187,10 +190,11 @@ int main(int argc, char **argv)
 //Function to handle an individual card reader connection
 // </summary>
 void *handleCardReader(void * p_client_socket) {
+    // char* access;
     int client_socket = *((int*)p_client_socket);
     free(p_client_socket); // we dont need it anymore
     char buffer[BUFFER_SIZE];
-    int id;
+    char id[4];
     char scanned[17];
     ssize_t bytes;
 
@@ -208,10 +212,10 @@ void *handleCardReader(void * p_client_socket) {
     // Check if initialisation message
     if (strstr(buffer, "HELLO#") != NULL) {
 
-        if (sscanf(buffer, "CARDREADER %d HELLO#", &id) == 1)
+        if (sscanf(buffer, "CARDREADER %s HELLO#", id) == 1)
         {
         printf("Card reader initialised succefully\n");
-        printf("Received card reader ID: %d\n", id);
+        printf("Received card reader ID: %s\n", id);
         }
         else
         {
@@ -220,26 +224,21 @@ void *handleCardReader(void * p_client_socket) {
         }
      
     }
-    else if (sscanf(buffer, "CARDREADER %d SCANNED %[^#]#", &id, scanned) == 2) 
+    else if (sscanf(buffer, "CARDREADER %s SCANNED %[^#]#", id, scanned) == 2) 
     {
         // Handle the extracted card reader ID and scanned code
-        printf("Received card reader ID: %d\n", id);
+        printf("Received card reader ID: %s\n", id);
         printf("Received scanned code: %s\n", scanned);
 
-        bytes = 0;
-        // open file 
-        FILE *fp = fopen("authorisation.txt","r");
-        if (fp == NULL)
+        if (checkValid(scanned, id) == true)
         {
-            perror("Error fopen()");
-            exit(1);
+            printf("ALLOWED#");
         }
-        // read contents of file 
-        while ((bytes = fread(buffer, ARRAY_SIZE(buffer), BUFFER_SIZE , fp) > 0))
+        else
         {
-            printf("read %zu bytes\n", bytes);
-            printf("%s", buffer);
+            printf("NOTALLOWED#");
         }
+        printf("Over");
 
     }
     else
@@ -261,4 +260,72 @@ void *handleCardReader(void * p_client_socket) {
 		exit(1);
 	}   
     return NULL;
+}
+
+
+bool checkValid(const char *cardSearch, const char *cardID) {
+    printf("Hey im in the function");
+    FILE *fh1 = fopen("authorisation.txt", "r");
+    FILE *fh2 = fopen("connections.txt", "r");
+    char line[100];  // Assuming a line won't exceed 100 characters
+    char *doorID = NULL;
+
+    if (fh1 == NULL) {
+        perror("Error opening authorisation file");
+        return false;
+    }
+
+    if (fh2 == NULL) {
+        perror("Error opening connections file");
+        return false;
+    }
+        
+    while (fgets(line, sizeof(line), fh2)) {
+        char *token = strtok(line, " "); // Split the line by space
+
+        // Check if the first token is DOOR
+        if (strcmp(token, "DOOR") == 0) {
+            token = strtok(NULL, " "); // Split the line by space
+            if (strcmp(token, cardID) == 0)
+            {
+                token = strtok(NULL, " "); // Split the line by space
+
+                doorID = token;
+                /* printf("Door associated with card reader is %s", doorID); */
+                break;
+            }
+        }
+    }
+
+    if (doorID == NULL){
+        fclose(fh1);
+        fclose(fh2);
+        /* printf("user with card %s does not have to door through card reader %s \n", cardSearch, doorID); debug */
+        return false;
+    }
+
+    // Read the file line by line
+    while (fgets(line, sizeof(line), fh1)) {
+        // Remove newline character if present
+        size_t len = strlen(line);
+        if (len > 0 && line[len - 1] == '\n') {
+            line[len - 1] = '\0'; 
+        }
+
+        // Check if the card number is found in the line
+        if (strstr(line, cardSearch) != NULL) {
+            // If found check if the door is also found in the same line
+            if (strstr(line, doorID) != NULL) {
+                /* Card number was found in authorisation file with access to desired door. Close file and return true */
+                fclose(fh1);
+                fclose(fh2);
+                return true; 
+            }
+        }
+    }
+
+    /* Card number was not found in authorisation file. Close file and return false */
+    fclose(fh1);
+    fclose(fh2);
+    return false;
 }
