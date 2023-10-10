@@ -4,7 +4,7 @@
 #include <stdbool.h>
 
 const char *userId = "db4ed0a0bfbb00ac"; // Will take input from other functions within overseer
-const char *card_reader_id = "102";
+const char *card_reader_id = "105";
 
 void check_access(const char *userId, const char *card_reader_id)
 {
@@ -81,6 +81,9 @@ void check_access(const char *userId, const char *card_reader_id)
         {
             
             printf("ALLOWED#\n");
+        }
+        else{
+            printf("DENIED#\n");
         }
     }
     fclose(file);
