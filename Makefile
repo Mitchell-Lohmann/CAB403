@@ -1,7 +1,7 @@
 CFLAGS=-pthread -Wall
 
 overseer: Overseer.c
-	gcc -o overseer Overseer.c common.c -Wall 
+	gcc -o overseer Overseer.c  -Wall 
 
 simulator:
 	gcc -o simulator Simulator.c common.c -Wall 

@@ -275,23 +275,24 @@ void *handleCardReader(void * p_client_socket) {
 
 
 bool checkValid(const char *cardSearch, const char *cardID) {
-    FILE *fh1 = fopen("authorisation.txt", "r");
-    FILE *fh2 = fopen("connections.txt", "r");
+
+    FILE *fhA = fopen("authorisation.txt", "r");
+    FILE *fhB = fopen("connections.txt", "r");
     char lineA[100];  // Assuming a line won't exceed 100 characters
     char lineB[100];  // Assuming a line won't exceed 100 characters
     char *doorID = NULL;
 
-    if (fh1 == NULL) {
+    if (fhA == NULL) {
         perror("Error opening authorisation file");
         return false;
     }
 
-    if (fh2 == NULL) {
+    if (fhB == NULL) {
         perror("Error opening connections file");
         return false;
     }
         
-    while (fgets(lineA, sizeof(lineA), fh2)) {
+    while (fgets(lineA, sizeof(lineA), fhB)) {
         char *token = strtok(lineA, " "); // Split the line by space
 
         // Check if the first token is DOOR
@@ -300,24 +301,23 @@ bool checkValid(const char *cardSearch, const char *cardID) {
             if (strcmp(token, cardID) == 0)
             {
                 token = strtok(NULL, " "); // Split the line by space
-
-                doorID = token;
+                doorID = strdup(token); // Allocate memory and copy the value
                 break;
             }
         }
     }
 
     if (doorID == NULL){
-        fclose(fh1);
-        fclose(fh2);
-        printf("user with card %s does not have to door through card reader %s \n", cardSearch, doorID); 
+        printf("Could not match card reader ID with door ID \n"); // Debug line
+        free(doorID);
+        fclose(fhA);
+        fclose(fhB);
         return false;
     }
 
     // Read the file line by line
-    while (fgets(lineB, sizeof(lineB), fh1)) {
+    while (fgets(lineB, sizeof(lineB), fhA)) {
         // Remove newline character if present
-        
         size_t len = strlen(lineB);
         if (len > 0 && lineB[len - 1] == '\n') {
             lineB[len - 1] = '\0'; 
@@ -326,17 +326,19 @@ bool checkValid(const char *cardSearch, const char *cardID) {
         // Check if the card number is found in the line
         if (strstr(lineB, cardSearch) != NULL) {
             // If found check if the door is also found in the same line
-            if (strstr(lineB, doorID) != NULL) {
+            if (strcmp(lineB, doorID) != 0) {
                 /* Card number was found in authorisation file with access to desired door. Close file and return true */
-                fclose(fh1);
-                fclose(fh2);
+                free(doorID);
+                fclose(fhA);
+                fclose(fhB);
                 return true; 
             }
         }
     }
 
     /* Card number was not found in authorisation file. Close file and return false */
-    fclose(fh1);
-    fclose(fh2);
+    free(doorID);
+    fclose(fhA);
+    fclose(fhB);
     return false;
 }

@@ -51,7 +51,16 @@ int main(int argc, char **argv)
     char overseer_addr[10];
     int overseer_port = split_Address_Port(full_addr_overseer,overseer_addr);
 
+    /* Initialisation */
 
+    /* Send buffer */
+    char buff[BUFFER_SIZE];
+
+    /* Write msg into buf */
+    sprintf(buff, "DOOR {%d} {%s:%d} %s#\n", id,door_addr,door_port,initial_config);
+    
+    /* Send message to overseer */
+    send_message(buff, overseer_port, overseer_addr);
 
 
 
