@@ -15,7 +15,6 @@
 #include "common.h"
 
 
-#define BUFFER_SIZE 1023
 
 /* Door controller shared memory struct initialisation */
 typedef struct {
