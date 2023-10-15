@@ -91,7 +91,7 @@ int connect_to_overseer(int overseer_port,const char *overseer_addr)
 //<summary> 
 //Function that helps send message to overseer 
 //</summary>
-void send_message(const char *buf, const int overseer_port, const char *overseer_addr)
+void send_message_to_overseer(const char *buf, const int overseer_port, const char *overseer_addr)
 {
     /* Connects to overseer before sending message */
     int fd = connect_to_overseer(overseer_port, overseer_addr);
@@ -109,4 +109,31 @@ void send_message(const char *buf, const int overseer_port, const char *overseer
         perror("close()");
         exit(1);
     }
+}
+
+//<summary>
+//Closes connection with the fd
+//</summary>
+void close_connection(int client_fd)
+{
+    
+	/* close the socket used to receive data */
+	if (close(client_fd) == -1)
+	{
+	    perror("exit()");
+		exit(1);
+	}   
+}
+
+//<summary>
+//Send messeage to the fd
+//</summary>
+void send_message(int fd, char *message)
+{
+    if (send(fd, message, strlen(message), 0) == -1)
+    {
+        perror("send()");
+        exit(1);
+    }
+
 }

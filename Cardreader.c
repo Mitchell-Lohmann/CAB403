@@ -30,7 +30,7 @@ typedef struct
 
 /*Function Definitions*/
 
-void send_message(const char *buf, const int overseer_port, const char *overseer_addr);
+void send_message_to_overseer(const char *buf, const int overseer_port, const char *overseer_addr);
 
 int connect_to_overseer(int overseer_port, const char *overseer_addr);
 
@@ -92,7 +92,7 @@ int main(int argc, char **argv)
     sprintf(buff, "CARDREADER {%d} HELLO#\n", id);
     
     /* Send message to overseer */
-    send_message(buff, overseer_port, overseer_addr);
+    send_message_to_overseer(buff, overseer_port, overseer_addr);
     
     // printf("Send this msg to overseer %s \n", buff);
 
@@ -137,7 +137,7 @@ int main(int argc, char **argv)
             sprintf(buff, "CARDREADER %d SCANNED %s#", id , buf);
 
             /* Connects to overseer and sends the message in the buffer*/
-            send_message(buff, overseer_port, overseer_addr);
+            send_message_to_overseer(buff, overseer_port, overseer_addr);
 
             /* Need to implement overseer here, has been skipped in example video. */
             shared->response = 'Y';

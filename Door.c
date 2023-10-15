@@ -49,24 +49,7 @@ void change_door_status (shm_door* shared, char status_to_changeto)
     pthread_mutex_unlock(&shared->mutex);
 }
 
-//<summary>
-//Closes connection with the fd
-//</summary>
-void close_connection(int client_fd)
-{
-    /* Shut down socket - ends communication*/
-    if (shutdown(client_fd, SHUT_RDWR) == -1){
-        perror("shutdown()");
-        exit(1);
-    }
 
-	/* close the socket used to receive data */
-	if (close(client_fd) == -1)
-	{
-	    perror("exit()");
-		exit(1);
-	}   
-}
 
 int main(int argc, char **argv)
 {
@@ -106,9 +89,9 @@ int main(int argc, char **argv)
 
     /*Declare a data structure to specify the socket address (IP address + Port)
     *memset is used to zero the struct out */
-    struct sockaddr_in servaddr, clientaddr, addr_size;
+    struct sockaddr_in servaddr;
     memset(&servaddr, 0, sizeof(servaddr));
-    memset(&servaddr, 0, sizeof(clientaddr));
+
 
 
     /*Create TCP IP Socket*/
@@ -146,28 +129,11 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    client_socket = accept(door_socket, (struct sockaddr *)&clientaddr, (socklen_t *)&addr_size);
-    if (client_socket==-1) 
-    {
-        perror("accept()");
-        exit(1);
-    }
-    else
-    {
-        /* Sends the initialisation message to overseer */
-        if (send(client_socket, buff, strlen(buff), 0) == -1)
-        {
-            perror("send()");
-            exit(1);
-        }
+    
+    /* Sends the initialisation message to overseer */
+    send_message_to_overseer(buff, overseer_port, overseer_addr);
 
-    }
-
-    // Close the connection after sending initialising message
-
-    close_connection(client_socket);
-
-
+    
     /* Open share memory segment */
 
     int shm_fd = shm_open(shm_path, O_RDWR, 0666); // Creating for testing purposes
@@ -211,7 +177,7 @@ int main(int argc, char **argv)
         memset(buff, 0, sizeof(buff));
 
         // Waits till overseer try to connect to Door
-        client_socket = accept(door_socket, (struct sockaddr *)&clientaddr, (socklen_t *)&addr_size);
+        client_socket = accept(door_socket, NULL, NULL);
         if (client_socket==-1) 
         {
             perror("accept()");
@@ -226,7 +192,6 @@ int main(int argc, char **argv)
             perror("recv()");
             exit(1);
         }
-        fflush(stdout);
 
         if (strcmp(buff, "OPEN#") == 0 )
         {
@@ -234,25 +199,18 @@ int main(int argc, char **argv)
             {
                 // Door already open sends "ALREADY#" to overeer
                 respose = "ALREADY#";
-                if (send(client_socket, respose, strlen(respose), 0) == -1)
-                {
-                    perror("send()");
-                    exit(1);
-                }
-                // Close connection
-                close_connection(client_socket);
 
+                // Sends message and closes the connection 
+                send_message(client_socket, respose);
+                close_connection(client_socket);
+                
             }
             else if (current_door_status == 'C')
             {
                 respose = "OPENING#";
                 
                 // Door currently closed sends "OPENING#" to overseer
-                if (send(client_socket, respose, strlen(respose), 0) == -1)
-                {
-                    perror("send()");
-                    exit(1);
-                }
+                send_message(client_socket, respose);
 
                 pthread_mutex_lock(&shared->mutex);
                 shared->status = 'o';
@@ -263,11 +221,8 @@ int main(int argc, char **argv)
                 respose = "OPENED#";
 
                 // Door currently open sends "OPENED#" to overseer
-                if (send(client_socket, respose, strlen(respose), 0) == -1)
-                {
-                    perror("send()");
-                    exit(1);
-                }
+                send_message(client_socket, respose);
+
 
                 // Close connection
                 close_connection(client_socket);
@@ -289,11 +244,8 @@ int main(int argc, char **argv)
             {
                 // Door already open sends "ALREADY#" to overeer
                 respose = "ALREADY#";
-                if (send(client_socket, respose, strlen(respose), 0) == -1)
-                {
-                    perror("send()");
-                    exit(1);
-                }
+                send_message(client_socket, respose);
+
                 // Close connection
                 close_connection(client_socket);
 
@@ -303,11 +255,8 @@ int main(int argc, char **argv)
                 respose = "CLOSING#";
 
                 // Door currently opened sends "CLOSING#" to overseer
-                if (send(client_socket, respose, strlen(respose), 0) == -1)
-                {
-                    perror("send()");
-                    exit(1);
-                }
+                send_message(client_socket, respose);
+
 
                 pthread_mutex_lock(&shared->mutex);
                 shared->status = 'c';
@@ -318,11 +267,8 @@ int main(int argc, char **argv)
                 respose = "CLOSED#";
 
                 // Door currently open sends "OPENED#" to overseer
-                if (send(client_socket, respose, strlen(respose), 0) == -1)
-                {
-                    perror("send()");
-                    exit(1);
-                }
+                send_message(client_socket, respose);
+
 
                 // Close connection
                 close_connection(client_socket);
@@ -375,14 +321,23 @@ int main(int argc, char **argv)
         }
         else if (strcmp(buff, "CLOSE_SECURE#") == 0) // Dont have to implement for group of 2
         {
+            continue;
             // Do nothing
         }
         else if ((strcmp(buff, "CLOSE#") == 0) && emergency_mode == 1)
         {
             // respond with EMERGENCY_MODE#
+            respose = "EMERGENCY_MODE#";
+            send_message(client_socket, respose);
+
+            // Close connection
+            close_connection(client_socket);
+
         }
         else
         {
+            perror("Received message incorrect format");
+            exit(1);
 
         }
 
