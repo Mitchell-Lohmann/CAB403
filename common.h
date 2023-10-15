@@ -12,6 +12,8 @@
 #ifndef COMMON_H
 #define COMMON_H
 
+#define BUFFER_SIZE 1024
+
 int split_Address_Port(char *full_addr, char *addr);
 int connect_to_overseer(int overseer_port,const char *overseer_addr);
 void send_message_to_overseer(const char *buf, const int overseer_port, const char *overseer_addr);
