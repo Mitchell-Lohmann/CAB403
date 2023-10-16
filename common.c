@@ -16,7 +16,7 @@
 
 
 //<summary>
-//splits the address into address and port
+// Splits the address into address and port
 //</summary>
 int split_Address_Port(char *full_addr, char *addr)
 {
@@ -38,19 +38,17 @@ int split_Address_Port(char *full_addr, char *addr)
         {
             perror("Invalid input format of port number.\n");
             exit(1);
-            
         }
     } 
     else 
     {
         perror("Invalid input format of address.\n");
         exit(1);
-
     }
 }
 
 //<summary> 
-//Function that helps establish connection with overseer 
+// Function that helps establish connection with overseer 
 //</summary>
 int connect_to_overseer(int overseer_port,const char *overseer_addr)
 {
@@ -64,9 +62,9 @@ int connect_to_overseer(int overseer_port,const char *overseer_addr)
         exit(1);
     }
 
-    /*Declare a data structure to specify the socket address (IP address + Port)
-     *memset is used to zero the struct out
-     */
+    /* Declare a data structure to specify the socket address (IP address + Port)
+    memset is used to zero the struct out */
+
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
@@ -89,7 +87,7 @@ int connect_to_overseer(int overseer_port,const char *overseer_addr)
 
 
 //<summary> 
-//Function that helps send message to overseer 
+// Function that helps send message to overseer 
 //</summary>
 void send_message_to_overseer(const char *buf, const int overseer_port, const char *overseer_addr)
 {
@@ -112,7 +110,7 @@ void send_message_to_overseer(const char *buf, const int overseer_port, const ch
 }
 
 //<summary>
-//Closes connection with the fd
+// Closes connection with the fd
 //</summary>
 void close_connection(int client_fd)
 {
@@ -126,7 +124,7 @@ void close_connection(int client_fd)
 }
 
 //<summary>
-//Send messeage to the fd
+// Send messeage to the fd
 //</summary>
 void send_message(int fd, char *message)
 {
