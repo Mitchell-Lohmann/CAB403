@@ -261,7 +261,11 @@ void *handleCardReader(void *p_client_socket)
     }
     return NULL;
 }
-
+/// <summary>
+/// Function takes input of card number and reader where card was scanned. Checks
+/// authorisation.txt and connections.txt to confirm if card is valid. Returns
+/// true if card is valid for door or false if card is invalid for door. 
+/// </summary>
 bool checkValid(const char *cardSearch, const char *cardID)
 {
 

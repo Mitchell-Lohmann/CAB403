@@ -14,10 +14,10 @@
 #include <fcntl.h>
 #include "common.h"
 
-//<summary>
-// Function takes input of address from command line in form of 127.0.0.1:80 and splits
-// into address 127.0.0.1 and port 80.
-//</summary>
+/// <summary>
+/// Function takes input of address from command line in form of 127.0.0.1:80 and splits
+/// into address 127.0.0.1 and port 80.
+/// </summary>
 int split_Address_Port(char *full_addr, char *addr)
 {
     int port_number;
@@ -49,9 +49,9 @@ int split_Address_Port(char *full_addr, char *addr)
     }
 }
 
-//<summary>
-// Function that helps establish connection with overseer.
-//</summary>
+/// <summary>
+/// Function that helps establish connection with overseer.
+/// </summary>
 int connect_to_overseer(int overseer_port, const char *overseer_addr)
 {
     int fd;
