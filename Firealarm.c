@@ -22,13 +22,9 @@ typedef struct {
     pthread_cond_t cond;
 } shm_firealarm;
 
-
-
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
     /* Check for error in input arguments */
-    if(argc < 9)
-    {
+    if(argc < 9) {
         fprintf(stderr, "Missing command line arguments, {address:port} {temperature threshold} {min detections} {detection period (in microseconds)} {reserved argument} {shared memory path} {shared memory offset} {overseer address:port}");
         exit(1);
     }
@@ -82,5 +78,4 @@ int main(int argc, char **argv)
         exit(1);
     }
     /* Normal function */
-
 } /* End main */
