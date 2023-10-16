@@ -16,22 +16,23 @@
 
 
 //<summary>
-// Splits the address into address and port
+// Function takes input of address from command line in form of 127.0.0.1:80 and splits 
+// into address 127.0.0.1 and port 80. 
 //</summary>
 int split_Address_Port(char *full_addr, char *addr)
 {
     int port_number;
-// Use strtok to split the input string using ':' as the delimiter
+    /* Use strtok to split the input string using ':' as the delimiter */
     char *token = strtok((char *)full_addr, ":");
     if (token != NULL) {
-        // token now contains "127.0.0.1"
+        /* token now contains "127.0.0.1" */
           
         memcpy(addr, token, 9);
         addr[9] = '\0';
 
         token = strtok(NULL, ":");
         if (token != NULL) {
-            port_number = atoi(token); // Store the port as an integer
+            port_number = atoi(token); /* Store the port as an integer */
             return port_number;
         } 
         else 
@@ -48,7 +49,7 @@ int split_Address_Port(char *full_addr, char *addr)
 }
 
 //<summary> 
-// Function that helps establish connection with overseer 
+// Function that helps establish connection with overseer. 
 //</summary>
 int connect_to_overseer(int overseer_port,const char *overseer_addr)
 {

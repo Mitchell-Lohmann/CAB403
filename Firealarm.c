@@ -13,7 +13,7 @@
 #include <fcntl.h>      
 #include "common.h"
 
-
+/* Code is written to be complaint with saftey standards  MISRA-C and IEC 61508. */
 
 /* Call point unit shared memory struct initialisation */
 typedef struct {
