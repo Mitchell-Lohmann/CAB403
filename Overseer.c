@@ -10,20 +10,17 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <stdbool.h>
-
-
-
-#define BUFFER_SIZE 1024
+#include "common.h"
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
-
 /* Overseer shared memory structure */
-typedef struct {
+typedef struct
+{
     char security_alarm; // '-' if inactive, 'A' if active
     pthread_mutex_t mutex;
     pthread_cond_t cond;
-}shm_overseer;
+} shm_overseer;
 
 /* Function Definitions */
 
@@ -40,11 +37,10 @@ void recv_looped(int fd, void *buf, size_t sz)
             perror("read()");
             exit(1);
         }
-        ptr+= received;
+        ptr += received;
         remain -= received;
     }
 }
-
 
 char *receive_msg(int fd)
 {
@@ -58,11 +54,11 @@ char *receive_msg(int fd)
     return buf;
 }
 
-void *handleCardReader(void * p_client_socket) ;
+void *handleCardReader(void *p_client_socket);
 
 bool checkValid(const char *cardSearch, const char *cardID);
 
-int main(int argc, char **argv) 
+int main(int argc, char **argv)
 {
     /* Check for error in input arguments */
     // if(argc < 8)
@@ -75,52 +71,49 @@ int main(int argc, char **argv)
 
     char *full_addr = argv[1];
     char addr[10];
-    int port ;
-    //int door_open_duration = atoi(argv[2]);
-    //int datagram_resend_delay = atoi(argv[3]);
-    //char *authorisation_file = argv[4];
-    //char *connection_file = argv[5];
-    //char *layout_file = argv[6];
-    //const char *shm_path = argv[7];
-    //int shm_offset = atoi(argv[8]);
+    int port;
+    // int door_open_duration = atoi(argv[2]);
+    // int datagram_resend_delay = atoi(argv[3]);
+    // char *authorisation_file = argv[4];
+    // char *connection_file = argv[5];
+    // char *layout_file = argv[6];
+    // const char *shm_path = argv[7];
+    // int shm_offset = atoi(argv[8]);
 
-    
     // Use strtok to split the input string using ':' as the delimiter
     char *token = strtok((char *)full_addr, ":");
-    if (token != NULL) {
+    if (token != NULL)
+    {
         // token now contains "127.0.0.1"
-          
+
         memcpy(addr, token, 9);
         addr[9] = '\0';
 
         token = strtok(NULL, ":");
-        if (token != NULL) {
+        if (token != NULL)
+        {
             port = atoi(token); // Store the port as an integer
-        } 
-        else 
+        }
+        else
         {
             perror("Invalid input format of port number.\n");
             exit(1);
         }
-    } 
-    else 
+    }
+    else
     {
         perror("Invalid input format of address.\n");
         exit(1);
-
     }
-
-
 
     /* Client file descriptor */
     int client_socket, server_socket;
 
     /*Declare a data structure to specify the socket address (IP address + Port)
-    *memset is used to zero the struct out */
+     *memset is used to zero the struct out */
     struct sockaddr_in servaddr, clientaddr, addr_size;
     memset(&servaddr, 0, sizeof(servaddr));
     memset(&servaddr, 0, sizeof(clientaddr));
-
 
     /*Create TCP IP Socket*/
     server_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -132,38 +125,39 @@ int main(int argc, char **argv)
 
     /* enable for re-use address*/
     int opt_enable = 1;
-    if (setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &opt_enable, sizeof(opt_enable)) == -1){
+    if (setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &opt_enable, sizeof(opt_enable)) == -1)
+    {
         perror("setsockopt()");
         exit(1);
     }
 
     /* Initialise the address struct*/
-    servaddr.sin_family =AF_INET;
+    servaddr.sin_family = AF_INET;
     servaddr.sin_port = htons(port);
     servaddr.sin_addr.s_addr = INADDR_ANY;
     socklen_t addrlen = sizeof(servaddr);
 
     /* Assign a name to the socket created */
-    if (bind(server_socket, (struct sockaddr *)&servaddr, addrlen)==-1) 
+    if (bind(server_socket, (struct sockaddr *)&servaddr, addrlen) == -1)
     {
         perror("bind()");
         exit(1);
     }
 
     /*Place server in passive mode - listen for incoming cient request*/
-    if (listen(server_socket, 100)==-1) 
+    if (listen(server_socket, 100) == -1)
     {
         perror("listen()");
         exit(1);
     }
 
     /* Infinite Loop */
-    while (1) 
+    while (1)
     {
         /* Generate a new socket for data transfer with the client */
-        
+
         client_socket = accept(server_socket, (struct sockaddr *)&clientaddr, (socklen_t *)&addr_size);
-        if (client_socket==-1) 
+        if (client_socket == -1)
         {
             perror("accept()");
             exit(1);
@@ -174,24 +168,22 @@ int main(int argc, char **argv)
         int *pclient = malloc(sizeof(int));
         *pclient = client_socket;
 
-
-        if (pthread_create(&cardreader_thread,NULL, handleCardReader, pclient) != 0) 
+        if (pthread_create(&cardreader_thread, NULL, handleCardReader, pclient) != 0)
         {
             perror("pthread_create()");
             exit(1);
         }
 
-        
     } // end while
 } // end main
 
-
 // <summary>
-//Function to handle an individual card reader connection
+// Function to handle an individual card reader connection
 // </summary>
-void *handleCardReader(void * p_client_socket) {
-    char* access;
-    int client_socket = *((int*)p_client_socket);
+void *handleCardReader(void *p_client_socket)
+{
+    char *access;
+    int client_socket = *((int *)p_client_socket);
     free(p_client_socket); // we dont need it anymore
     char buffer[BUFFER_SIZE];
     char id[4];
@@ -206,26 +198,25 @@ void *handleCardReader(void * p_client_socket) {
         exit(1);
     }
     fflush(stdout);
-    
 
     /* Validation */
     // Parse the received message (e.g., "CARDREADER {id} HELLO#")
     // Check if initialisation message
-    if (strstr(buffer, "HELLO#") != NULL) {
+    if (strstr(buffer, "HELLO#") != NULL)
+    {
 
         if (sscanf(buffer, "CARDREADER %s HELLO#", id) == 1)
         {
-        // printf("Card reader initialised succefully\n");
-        // printf("Received card reader ID: %s\n", id);
+            // printf("Card reader initialised succefully\n");
+            // printf("Received card reader ID: %s\n", id);
         }
         else
         {
             // Invalid message format
             printf("Invalid message format from card reader.\n");
         }
-     
     }
-    else if (sscanf(buffer, "CARDREADER %s SCANNED %[^#]#", id, scanned) == 2) 
+    else if (sscanf(buffer, "CARDREADER %s SCANNED %[^#]#", id, scanned) == 2)
     {
         // Handle the extracted card reader ID and scanned code
         // printf("Received card reader ID: %s\n", id);
@@ -234,7 +225,6 @@ void *handleCardReader(void * p_client_socket) {
         if (checkValid(scanned, id) == true)
         {
             access = "ALLOWED#";
-
         }
         else
         {
@@ -253,62 +243,66 @@ void *handleCardReader(void * p_client_socket) {
         printf("Invalid message format from card reader.\n");
     }
 
-    // Connection to Door 
-
-
+    // Connection to Door
 
     // Close the connection
     /* Shut down socket - ends communication*/
-    if (shutdown(client_socket, SHUT_RDWR) == -1){
+    if (shutdown(client_socket, SHUT_RDWR) == -1)
+    {
         perror("shutdown()");
         exit(1);
     }
 
-	/* close the socket used to receive data */
-	if (close(client_socket) == -1)
-	{
-	    perror("exit()");
-		exit(1);
-	}   
+    /* close the socket used to receive data */
+    if (close(client_socket) == -1)
+    {
+        perror("exit()");
+        exit(1);
+    }
     return NULL;
 }
 
-
-bool checkValid(const char *cardSearch, const char *cardID) {
+bool checkValid(const char *cardSearch, const char *cardID)
+{
 
     FILE *fhA = fopen("authorisation.txt", "r");
     FILE *fhB = fopen("connections.txt", "r");
-    char lineA[100];  // Assuming a line won't exceed 100 characters
-    char lineB[100];  // Assuming a line won't exceed 100 characters
+    char lineA[100]; // Assuming a line won't exceed 100 characters
+    char lineB[100]; // Assuming a line won't exceed 100 characters
     int doorID = -1;
 
-    if (fhA == NULL) {
+    if (fhA == NULL)
+    {
         perror("Error opening authorisation file");
         return false;
     }
 
-    if (fhB == NULL) {
+    if (fhB == NULL)
+    {
         perror("Error opening connections file");
         return false;
     }
-        
-    while (fgets(lineA, sizeof(lineA), fhB)) {
+
+    while (fgets(lineA, sizeof(lineA), fhB))
+    {
         char *token = strtok(lineA, " "); // Split the line by space
 
         // Check if the first token is DOOR
-        if (strcmp(token, "DOOR") == 0) {
+        if (strcmp(token, "DOOR") == 0)
+        {
             token = strtok(NULL, " "); // Split the line by space
             if (strcmp(token, cardID) == 0)
             {
                 token = strtok(NULL, " "); // Split the line by space
-                doorID = atoi(token); // Allocate memory and copy the value
+                doorID = atoi(token);      // Allocate memory and copy the value
                 break;
             }
         }
     }
 
     /* If card reader does not match any door in the connections files. */
-    if (doorID == -1){
+    if (doorID == -1)
+    {
         printf("Could not match card reader ID with door ID \n"); // Debug line
         fclose(fhA);
         fclose(fhB);

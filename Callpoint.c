@@ -9,27 +9,31 @@
 #include <stdbool.h>
 #include <pthread.h>
 #include <sys/mman.h>
-#include <sys/stat.h>  
-#include <fcntl.h>      
+#include <sys/stat.h>
+#include <fcntl.h>
 #include "common.h"
 
 /* Code is written to be complaint with saftey standards  MISRA-C and IEC 61508. */
 
 /* Call point unit shared memory struct initialisation */
-typedef struct {
+typedef struct
+{
     char status; /* '-' for inactive, '*' for active */
     pthread_mutex_t mutex;
     pthread_cond_t cond;
 } shm_callpoint;
 
 /* Datagram to be send */
-typedef struct {
+typedef struct
+{
     char header[4]; /* {'F', 'I', 'R', 'E'} */
 } callpoint_datagram;
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv)
+{
     /* Check for error in input arguments */
-    if(argc < 5) {
+    if (argc < 5)
+    {
         fprintf(stderr, "Missing command line arguments, {resend delay (in microseconds)} {shared memory path} {shared memory offset} {fire alarm unit address:port}\n");
         exit(1);
     }
@@ -43,21 +47,24 @@ int main(int argc, char **argv) {
 
     /* Open share memory segment */
     int shm_fd = shm_open(shm_path, O_RDWR, 0666); /* Creating for testing purposes */
-    if(shm_fd == -1) {
+    if (shm_fd == -1)
+    {
         perror("shm_open()");
         exit(1);
     }
-    
+
     /* fstat helps to get information of the shared memory like its size */
     struct stat shm_stat;
-    if(fstat(shm_fd, &shm_stat) == -1) {
+    if (fstat(shm_fd, &shm_stat) == -1)
+    {
         perror("fstat()");
         close(shm_fd);
         exit(1);
     }
 
-    char *shm = mmap(NULL, (size_t)shm_stat.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);    
-    if(shm == MAP_FAILED) {
+    char *shm = mmap(NULL, (size_t)shm_stat.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    if (shm == MAP_FAILED)
+    {
         perror("mmap()");
         close(shm_fd);
         exit(1);
@@ -75,7 +82,8 @@ int main(int argc, char **argv) {
 
     /* Create a socket for sending the datagram */
     int sendfd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sendfd == -1) {
+    if (sendfd == -1)
+    {
         perror("socket()");
         exit(1);
     }
@@ -87,23 +95,26 @@ int main(int argc, char **argv) {
     (void)memset(&destaddr, 0, sizeof(destaddr));
     destaddr.sin_family = AF_INET;
     destaddr.sin_port = htons((in_port_t)firealarm_port);
-    if (inet_pton(AF_INET, firealarm_addr, &destaddr.sin_addr) != 1) {
+    if (inet_pton(AF_INET, firealarm_addr, &destaddr.sin_addr) != 1)
+    {
         fprintf(stderr, "inet_pton(%s)\n", firealarm_addr);
         exit(1);
     }
 
     /* Locks the mutex */
     pthread_mutex_lock(&shared->mutex);
-    for(;;) {
-        if (shared->status == '*') {
+    for (;;)
+    {
+        if (shared->status == '*')
+        {
             /* Sends UDP Datagram */
             (void)sendto(sendfd, datagram.header, (size_t)strlen(datagram.header), 0, (const struct sockaddr *)&destaddr, destaddr_len);
             /* Sleep for {resend delay} */
             (void)usleep((useconds_t)resend_delay);
         }
-        else {
+        else
+        {
             (void)pthread_cond_wait(&shared->cond, &shared->mutex);
         }
     } /* Loop ends */
-
 }
