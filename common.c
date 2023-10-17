@@ -90,24 +90,30 @@ int connect_to_overseer(int overseer_port, const char *overseer_addr)
 //<summary>
 // Function that helps send message to overseer
 //</summary>
-void send_message_to_overseer(const char *buf, const int overseer_port, const char *overseer_addr)
+int send_message_to_overseer(const char *buf, const int overseer_port, const char *overseer_addr)
 {
     /* Connects to overseer before sending message */
     int fd = connect_to_overseer(overseer_port, overseer_addr);
+    if (fd == -1)
+    {
+        perror("connect_to_overseer");
+        return -1;
+    }
 
     /* Sends the message in the buffer*/
     if (send(fd, buf, strlen(buf), 0) == -1)
     {
         perror("send()");
-        exit(1);
+        return -1;
     }
 
     /* Close connection */
     if (close(fd) == -1)
     {
         perror("close()");
-        exit(1);
+        return -1;
     }
+    return 1;
 }
 
 //<summary>
