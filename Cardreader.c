@@ -32,7 +32,7 @@ typedef struct
 
 void send_message_to_overseer(const char *buf, const int overseer_port, const char *overseer_addr);
 
-int connect_to_overseer(int overseer_port, const char *overseer_addr);
+int connect_to(int overseer_port, const char *overseer_addr);
 
 
 

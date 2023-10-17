@@ -26,7 +26,7 @@ int split_Address_Port(char *full_addr, char *addr)
     if (token != NULL)
     {
         /* token now contains "127.0.0.1" */
-
+        
         memcpy(addr, token, 9);
         addr[9] = '\0';
 
@@ -50,9 +50,9 @@ int split_Address_Port(char *full_addr, char *addr)
 }
 
 /// <summary>
-/// Function that helps establish connection with overseer.
+/// Function that helps establish connection with a program over TCP.
 /// </summary>
-int connect_to_overseer(int overseer_port, const char *overseer_addr)
+int connect_to(int program_port, const char *program_addr)
 {
     int fd;
 
@@ -70,10 +70,10 @@ int connect_to_overseer(int overseer_port, const char *overseer_addr)
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
-    addr.sin_port = htons(overseer_port);
-    if (inet_pton(AF_INET, overseer_addr, &addr.sin_addr) != 1)
+    addr.sin_port = htons(program_port);
+    if (inet_pton(AF_INET, program_addr, &addr.sin_addr) != 1)
     {
-        fprintf(stderr, "inet_pton(%s)\n", overseer_addr);
+        fprintf(stderr, "inet_pton(%s)\n", program_addr);
         exit(1);
     }
 
@@ -88,15 +88,15 @@ int connect_to_overseer(int overseer_port, const char *overseer_addr)
 }
 
 //<summary>
-// Function that helps send message to overseer
+// Function that helps send message to any program over TCP
 //</summary>
-int send_message_to_overseer(const char *buf, const int overseer_port, const char *overseer_addr)
+int send_message_to(const char *buf, const int program_port, const char *program_addr)
 {
     /* Connects to overseer before sending message */
-    int fd = connect_to_overseer(overseer_port, overseer_addr);
+    int fd = connect_to(program_port, program_addr);
     if (fd == -1)
     {
-        perror("connect_to_overseer");
+        perror("connect_to");
         return -1;
     }
 
