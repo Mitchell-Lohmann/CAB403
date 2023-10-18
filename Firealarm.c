@@ -187,14 +187,12 @@ int main(int argc, char **argv)
 
         if ((strncmp(buff, "FIRE", 4) == 0) && !ifFireAlarmSet)
         {
-            printf("Fire\n");
             // fire emergency datagram
             ifFireAlarmSet = setfireAlarm(shared, fail_safe_doors, numDoors);
 
         }
         else if ((strncmp(buff, "TEMP", 4) == 0) && !ifFireAlarmSet)
         {
-            printf("Temp\n");
             // Temp update datagram
             struct temp_datagram_format *pointer = (struct temp_datagram_format *)buff;
             if (pointer == NULL)
@@ -217,8 +215,9 @@ int main(int argc, char **argv)
             // Add timestep to detections array 
             if (numDetections < 50)
             {
-                detections[numDetections].tv_usec = detection_period;
-
+                // Add timestamp to detections array
+                detections[numDetections] = pointer->timestamp;
+                numDetections++;
             }
             else
             {
@@ -241,7 +240,6 @@ int main(int argc, char **argv)
         }
         else if ((strncmp(buff, "DOOR", 4) == 0) && !ifFireAlarmSet)
         {
-            printf("Door\n");
             // Door registration datagram
             struct door_reg_datagram *pointer = (struct door_reg_datagram *)buff;
             if (pointer == NULL)
@@ -253,7 +251,6 @@ int main(int argc, char **argv)
             // If door not in the list add it
             if (isNewDoor(pointer, fail_safe_doors, &numDoors))
             {
-                printf("Is new door \n");
                 if(numDoors < 100) // checks if max number of allowable doors reached
                 {
                     fail_safe_doors[numDoors] = *pointer; // Dereference pointer to access the data
@@ -283,7 +280,6 @@ int main(int argc, char **argv)
         }
         else if ((strncmp(buff, "DOOR", 4) == 0) && ifFireAlarmSet)
         {
-            printf("Fire Alarm mode \n");
             // Door registration datagram
             struct door_reg_datagram *pointer = (struct door_reg_datagram *)buff;
             if (pointer == NULL)
@@ -309,13 +305,6 @@ int main(int argc, char **argv)
             // Loop to start 
             continue; 
         }
-        else
-        {
-            // printf("End program \n");
-            // exit(1);
-            // error handling
-        }
-
     }
 
 } /* End main */
@@ -332,11 +321,11 @@ void removeOldTimestamps(struct timeval* detections, int* numDetections, int det
     
     for (int i = 0; i < *numDetections; i++) {
 
-        int time_diff = (current_time.tv_sec - detections[i].tv_sec) * 1000000 +
+        int time_elapsed = (current_time.tv_sec - detections[i].tv_sec) * 1000000 +
                     (current_time.tv_usec - detections[i].tv_usec);
         
         // Check if the time difference is less than the detection period
-        if (time_diff > detection_period) {
+        if (time_elapsed < detection_period) {
             detections[numValidDetections] = detections[i];
             numValidDetections++;
         }
@@ -351,10 +340,10 @@ int isTimestampOld(struct temp_datagram_format *datagram, int detection_period) 
     gettimeofday(&current_time, NULL); // Get the current time
 
     // Calculate the time difference in microseconds
-    int time_diff = (current_time.tv_sec - datagram->timestamp.tv_sec) * 1000000 +
+    int time_elapsed = (current_time.tv_sec - datagram->timestamp.tv_sec) * 1000000 +
                     (current_time.tv_usec - datagram->timestamp.tv_usec);
 
-    return time_diff > detection_period;
+    return time_elapsed > detection_period;
 }
 
 // Function to check if the Door is present in the door list
@@ -373,7 +362,6 @@ int isNewDoor(struct door_reg_datagram *new_door, struct door_reg_datagram fail_
 // Function that sets fire alarm in shared memory and sends OPEN_EMERG# to every fail_safe doors
 int setfireAlarm(shm_firealarm *shm, struct door_reg_datagram doors[] ,int numDoors)
 {
-    printf("Inside set alarm \n");
     char *buff = "OPEN_EMERG#";
 
     pthread_mutex_lock(&shm->mutex);
@@ -383,7 +371,6 @@ int setfireAlarm(shm_firealarm *shm, struct door_reg_datagram doors[] ,int numDo
 
     for (int i = 0; i < numDoors; i++)
     {
-        printf("Inside loop\n");
         // Convert in_port_t to int
         int doorPort = htons(doors[i].door_port);
         // Convert the in_addr to a string
