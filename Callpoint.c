@@ -10,6 +10,8 @@
 #include <pthread.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <sys/types.h>
+#include <time.h>
 #include <fcntl.h>
 #include "common.h"
 
@@ -110,7 +112,7 @@ int main(int argc, char **argv)
             /* Sends UDP Datagram */
             (void)sendto(sendfd, datagram.header, (size_t)strlen(datagram.header), 0, (const struct sockaddr *)&destaddr, destaddr_len);
             /* Sleep for {resend delay} */
-            (void)usleep((useconds_t)resend_delay);
+            (void)usleep(resend_delay);
         }
         else
         {

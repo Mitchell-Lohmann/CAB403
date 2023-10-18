@@ -122,7 +122,7 @@ int main(int argc, char **argv)
     }
 
     /* Sends the initialisation message to overseer */
-    send_message_to_overseer(buff, overseer_port, overseer_addr);
+    send_message_to(buff, overseer_port, overseer_addr);
 
     /* Open share memory segment */
     int shm_fd = shm_open(shm_path, O_RDWR, 0666); // Creating for testing purposes
