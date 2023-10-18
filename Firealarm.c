@@ -135,6 +135,13 @@ int main(int argc, char **argv)
     /* Declare a data structure to specify the socket address of overseer (address + Port) */
     struct sockaddr_in senderaddr;
     (void)memset(&senderaddr, 0, sizeof(senderaddr));
+    senderaddr.sin_family = AF_INET;
+    senderaddr.sin_port = htons(overseer_port);
+    if (inet_pton(AF_INET, overseer_addr, &addr.sin_addr) != 1)
+    {
+        fprintf(stderr, "inet_pton(%s)\n", overseer_addr);
+        exit(1);
+    }
     socklen_t senderaddr_len = sizeof(senderaddr);
 
     /* Write msg into buf */
@@ -178,7 +185,7 @@ int main(int argc, char **argv)
     for(;;)
     {
         // Receives first 4 bytes and stores into buffer
-        ssize_t bytes = recvfrom(recvsockfd, buff, 512, 0, (struct sockaddr *)&senderaddr, &senderaddr_len);
+        ssize_t bytes = recvfrom(recvsockfd, buff, 512, 0, NULL, NULL);
         if (bytes == -1)
         {
             perror("recvfrom()");
