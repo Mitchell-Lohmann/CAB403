@@ -14,7 +14,7 @@
 #include <fcntl.h>
 
 typedef struct
-{
+{ 
     char scanned[16];
     pthread_mutex_t mutex;
     pthread_cond_t scanned_cond;
@@ -63,30 +63,21 @@ void init(char *scenarioName)
 
             if (child_pid == 0)
             {
-                char *token2;
-                int j = 0; // Index for splitStrings
-                char *arguments[8];
-                char lineArguments[100];
-                strcpy(lineArguments, lineA);
+                char *argument1 = NULL, *argument4 = NULL, *argument5 = NULL, *argument6 = NULL;
+                int *argument2 = 0, *argument3 = 0;
 
-                // Use strtok to split the inputString into substrings at each space
-                token2 = strtok(lineArguments, " ");
-
-                while (token2 != NULL)
-                {
-                    // Store each split in the splitStrings array
-                    arguments[j] = token2;
-                    printf("argument %d = %s \n", j, arguments[j]);
-                    j++;
-
-                    // Get the next split
-                    token2 = strtok(NULL, " ");
-                }
+                
 
                 if (!strcmp(token, "overseer"))
                 {
-                    printf("overseer found in line %s\n", lineA);
-                    execl(arguments[1],arguments[1], arguments[2], arguments[3], arguments[4], arguments[5], arguments[6], NULL);
+                    /* Check that sscanf is successful */
+                    if(sscanf(lineA, "INIT overseer %d %d %s %s %s", argument2, argument3, argument4, argument5, argument6) != 5){
+                        perror("sscanf failed");
+                    }
+
+                    argument1 = "overseer";
+                    printf("overseer executed\n");
+                    execl(argument1,argument1, argument2, argument3, argument4, argument5, argument6, NULL);
                     // Fork
                     // Replace child process with overseer process
                 }
