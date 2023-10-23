@@ -148,7 +148,7 @@ int main(int argc, char **argv)
     sprintf(buff, "FIREALARM %s:%d HELLO#\n", firealarm_addr, firealarm_port);
 
     /* Send initialisation message to overseer */
-    if (send_message_to(buff, overseer_port, overseer_addr) == -1)
+    if (send_message_to(buff, overseer_port, overseer_addr, 1) == -1)
     {
         perror("send_message_to()");
         exit(1);
@@ -301,7 +301,7 @@ int main(int argc, char **argv)
             char *addr_str = inet_ntoa(pointer->door_addr);
 
             // Send OPEN_EMERG# to newly registered door
-            send_message_to(buf, pointer->door_port, addr_str);
+            send_message_to(buf, pointer->door_port, addr_str, 1);
 
             /* Create an instance of DREG datagram */
             struct door_confirm_datagram confirm_door = initialise_DREG_Struct(pointer);
@@ -382,10 +382,10 @@ int setfireAlarm(shm_firealarm *shm, struct door_reg_datagram doors[] ,int numDo
         int doorPort = htons(doors[i].door_port);
         // Convert the in_addr to a string
         char *addr_str = inet_ntoa(doors[i].door_addr);
-        if (send_message_to(buff, doorPort, addr_str) == -1)
+        if (send_message_to(buff, doorPort, addr_str, 1) == -1)
         {
-        perror("send_message_to()");
-        exit(1);
+            perror("send_message_to()");
+            exit(1);
         }
 
     }
