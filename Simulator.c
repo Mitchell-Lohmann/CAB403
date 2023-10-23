@@ -12,6 +12,7 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include "commonSimulator.h"
 
 typedef struct
 { 
@@ -63,51 +64,51 @@ void init(char *scenarioName)
 
             if (child_pid == 0)
             {
-                char *argument1 = NULL, *argument4 = NULL, *argument5 = NULL, *argument6 = NULL;
-                int *argument2 = 0, *argument3 = 0;
-
-                
+                char argument1[64], argument2[64], argument3[64], argument4[46], argument5[64], argument6[64];
 
                 if (!strcmp(token, "overseer"))
                 {
+                    printf("overseer found in line %s\n", lineA); // Debug line
                     /* Check that sscanf is successful */
-                    if(sscanf(lineA, "INIT overseer %d %d %s %s %s", argument2, argument3, argument4, argument5, argument6) != 5){
+                    if(sscanf(lineA, "INIT overseer %s %s %s %s %s", argument2, argument3, argument4, argument5, argument6) != 5){
                         perror("sscanf failed");
+                        exit(1);
                     }
+                    printf("Sscanf returned: %d %d %s %s %s \n", atoi(argument2), atoi(argument3), argument4, argument5, argument6);
 
-                    argument1 = "overseer";
-                    printf("overseer executed\n");
-                    execl(argument1,argument1, argument2, argument3, argument4, argument5, argument6, NULL);
+                    strcpy(argument1, "overseer"); // Debug line
+                    printf("overseer executed\n"); // Debug line
+                    execl(argument1, argument1, argument2, argument3, argument4, argument5, argument6, NULL);
                     // Fork
                     // Replace child process with overseer process
                 }
                 else if (!strcmp(token, "door"))
                 {
-                    printf("door found in line %s\n", lineA);
+                    //printf("door found in line %s\n", lineA);
                 }
                 else if (!strcmp(token, "cardreader"))
                 {
-                    printf("cardreader found in line %s\n", lineA);
+                    //printf("cardreader found in line %s\n", lineA);
                 }
                 else if (!strcmp(token, "firealarm"))
                 {
-                    printf("firealarm found in line %s\n", lineA);
+                    //printf("firealarm found in line %s\n", lineA);
                 }
                 else if (!strcmp(token, "callpoint"))
                 {
-                    printf("callpoint found in line %s\n", lineA);
+                    //printf("callpoint found in line %s\n", lineA);
                 }
                 else if (!strcmp(token, "tempsensor"))
                 {
-                    printf("tempsensor found in line %s\n", lineA);
+                    //printf("tempsensor found in line %s\n", lineA);
                 }
                 else if (!strcmp(token, "destselect"))
                 {
-                    printf("destselect found in line %s\n", lineA);
+                    //printf("destselect found in line %s\n", lineA);
                 }
                 else if (!strcmp(token, "camera"))
                 {
-                    printf("camera found in line %s\n", lineA);
+                    //printf("camera found in line %s\n", lineA);
                 }
             }
         }
