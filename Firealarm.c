@@ -133,16 +133,16 @@ int main(int argc, char **argv)
     }
 
     /* Declare a data structure to specify the socket address of overseer (address + Port) */
-    struct sockaddr_in senderaddr;
-    (void)memset(&senderaddr, 0, sizeof(senderaddr));
-    senderaddr.sin_family = AF_INET;
-    senderaddr.sin_port = htons(overseer_port);
-    if (inet_pton(AF_INET, overseer_addr, &addr.sin_addr) != 1)
+    struct sockaddr_in sendtoaddr;
+    (void)memset(&sendtoaddr, 0, sizeof(sendtoaddr));
+    sendtoaddr.sin_family = AF_INET;
+    sendtoaddr.sin_port = htons(overseer_port);
+    if (inet_pton(AF_INET, overseer_addr, &sendtoaddr.sin_addr) != 1)
     {
         fprintf(stderr, "inet_pton(%s)\n", overseer_addr);
         exit(1);
     }
-    socklen_t senderaddr_len = sizeof(senderaddr);
+    socklen_t senderaddr_len = sizeof(sendtoaddr);
 
     /* Write msg into buf */
     sprintf(buff, "FIREALARM %s:%d HELLO#\n", firealarm_addr, firealarm_port);
@@ -279,7 +279,7 @@ int main(int argc, char **argv)
             struct door_confirm_datagram confirm_door = initialise_DREG_Struct(pointer);
 
             // Send door confirmation datagram to overseer
-            (void)sendto(sendfd, &confirm_door, (size_t)sizeof(struct door_reg_datagram), 0, (const struct sockaddr *)&senderaddr, senderaddr_len);
+            (void)sendto(sendfd, &confirm_door, (size_t)sizeof(struct door_reg_datagram), 0, (const struct sockaddr *)&sendtoaddr, senderaddr_len);
 
             // Loop to start 
             continue; 
@@ -307,7 +307,7 @@ int main(int argc, char **argv)
             struct door_confirm_datagram confirm_door = initialise_DREG_Struct(pointer);
 
             // Send door confirmation datagram to overseer
-            (void)sendto(sendfd, &confirm_door, (size_t)sizeof(struct door_reg_datagram), 0, (const struct sockaddr *)&senderaddr, senderaddr_len);
+            (void)sendto(sendfd, &confirm_door, (size_t)sizeof(struct door_reg_datagram), 0, (const struct sockaddr *)&sendtoaddr, senderaddr_len);
 
             // Loop to start 
             continue; 

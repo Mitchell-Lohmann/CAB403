@@ -90,7 +90,7 @@ int connect_to(int program_port, const char *program_addr)
 //<summary>
 // Function that helps send message to any program over TCP
 //</summary>
-int send_message_to(const char *buf, const int program_port, const char *program_addr)
+int send_message_to(const char *buf, const int program_port, const char *program_addr, int ifClose)
 {
     /* Connects to overseer before sending message */
     int fd = connect_to(program_port, program_addr);
@@ -107,11 +107,18 @@ int send_message_to(const char *buf, const int program_port, const char *program
         return -1;
     }
 
-    /* Close connection */
-    if (close(fd) == -1)
+    if (ifClose)
     {
-        perror("close()");
-        return -1;
+        /* Close connection */
+        if (close(fd) == -1)
+        {
+            perror("close()");
+            return -1;
+        }
+    }
+    else if (!(ifClose)) // Usually for listening for a response
+    {
+        return fd; // returns file discriptor
     }
     return 1;
 }
@@ -129,7 +136,25 @@ void close_connection(int client_fd)
         exit(1);
     }
 }
+//<summary>
+// Shut down and closes connection with the fd
+//</summary>
+void closeShutdown_connection(int client_fd)
+{
+    /* Shut down socket - ends communication*/
+    if (shutdown(client_fd, SHUT_RDWR) == -1)
+    {
+        perror("shutdown()");
+        exit(1);
+    }
 
+    /* close the socket used to receive data */
+    if (close(client_fd) == -1)
+    {
+        perror("exit()");
+        exit(1);
+    }
+}
 //<summary>
 // Send messeage to the fd
 //</summary>
@@ -140,4 +165,17 @@ void send_message(int fd, char *message)
         perror("send()");
         exit(1);
     }
+}
+
+// <summary>
+// Function to receive a message from a fd
+// </summary>
+ssize_t receiveMessage(int socket, char* buffer, size_t buffer_size) {
+    ssize_t bytes = recv(socket, buffer, buffer_size - 1, 0);
+    if (bytes == -1) {
+        perror("recv()");
+        exit(1);
+    }
+    buffer[bytes] = '\0'; // Null-terminate the received message
+    return bytes;
 }
