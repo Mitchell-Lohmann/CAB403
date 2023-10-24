@@ -13,16 +13,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include "commonSimulator.h"
-
-typedef struct
-{ 
-    char scanned[16];
-    pthread_mutex_t mutex;
-    pthread_cond_t scanned_cond;
-
-    char response; // 'Y' or 'N' (or '\0' at first)
-    pthread_cond_t response_cond;
-} shm_cardreader;
+#include "common.h"
 
 /// <summary>
 /// Function takes input of scenario file name and runs all initialisation setup
@@ -65,7 +56,7 @@ void init(char *scenarioName)
                 return;
             }
 
-            char serverPortChar[64], argumentAddress[64], argument0[64], argument1[64], argument2[64], argument3[64], argument4[64], argument5[64], argument6[64];
+            char argumentAddressPort[64], argument0[64], argument1[64], argument2[64], argument3[64], argument4[64], argument5[64], argument6[64];
 
             if (child_pid == 0)
             {
@@ -74,22 +65,22 @@ void init(char *scenarioName)
                 {
                     printf("overseer found in line %s\n", lineA); // Debug line
                     /* Check that sscanf is successful */
-                    if(sscanf(lineA, "INIT overseer %s %s %s %s %s", argument2, argument3, argument4, argument5, argument6) != 5){
+                    if(sscanf(lineA, "INIT %s %s %s %s %s %s", argument1, argument2, argument3, argument4, argument5, argument6) != 6){
                         perror("sscanf failed");
                         exit(1);
                     }
                     printf("Sscanf returned: %d %d %s %s %s \n", atoi(argument2), atoi(argument3), argument4, argument5, argument6); // Debug line
 
-                    sprintf(serverPortChar, "%d", serverPort); 
-                    strcpy(argumentAddress, serverAddress);
-                    strcat(argumentAddress,  ":");
-                    strcat(argumentAddress,  serverPortChar);
-                    printf("%s\n", argumentAddress); // Debug line
+                    snprintf(argumentAddressPort, 64, "%s:%d", serverAddress, serverPort);
+                    // sprintf(serverPortChar, "%d", serverPort); 
+                    // strcpy(argumentAddress, serverAddress);
+                    // strcat(argumentAddress,  ":");
+                    // strcat(argumentAddress,  serverPortChar);
+                    // printf("%s\n", argumentAddress); // Debug line
 
                     strcpy(argument0, "./overseer");
-                    
                     printf("overseer executed\n"); // Debug line
-                    execl(argument0, argument1, argumentAddress, argument2, argument3, argument4, argument5, argument6, NULL);
+                    execl(argument0, argument1, argumentAddressPort, argument2, argument3, argument4, argument5, argument6, NULL);
                     perror("execl");
 
                 }
@@ -97,15 +88,16 @@ void init(char *scenarioName)
                 {
                     //printf("door found in line %s\n", lineA);
                      /* Check that sscanf is successful */
-                    if(sscanf(lineA, "INIT door %s %s %s", argument2, argument3, argument4) != 3){
+                    if(sscanf(lineA, "INIT %s %s %s %s", argument1, argument2, argument3, argument4) != 4){
                         perror("sscanf failed");
                         exit(1);
                     }
 
+                    snprintf(argumentAddressPort, 64, "%s:%d", serverAddress, serverPort);
                     printf("Sscanf returned: %d %s %d\n", atoi(argument2), argument3, atoi(argument4)); // Debug line
 
-                    strcpy(argument1, "door");
-                    execl(argument1, argument1, argument2, argument3, argument4, NULL);
+                    strcpy(argument0, "./door");
+                    execl(argument0, argument1, argument2, argumentAddressPort, argument3, argument4, NULL);
                     perror("execl");
                 }
                 else if (!strcmp(token, "cardreader"))
@@ -133,6 +125,7 @@ void init(char *scenarioName)
                     //printf("camera found in line %s\n", lineA);
                 }
             }
+            serverPort++;
         }
     }
 }
