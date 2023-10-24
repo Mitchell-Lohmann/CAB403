@@ -4,7 +4,7 @@ overseer: Overseer.c
 	gcc -o overseer Overseer.c common.c -Wall 
 
 simulator: Simulator.c
-	gcc -o simulator Simulator.c common.c -Wall 
+	gcc -o simulator Simulator.c common.c commonSimulator.c -Wall 
 
 firealarm: Firealarm.c
 	gcc -o firealarm Firealarm.c common.c -Wall 
