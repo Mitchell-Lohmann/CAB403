@@ -29,20 +29,25 @@ struct DoorData
     struct in_addr door_addr;
     in_port_t door_port;
     char fail_safe; // y if yes (fail_safe) n is no (fail_secure)
+    bool acknowledged;
 };
 
 struct DoorData DoorList[50]; // Assuming no more than 50 doors will connect
 int numDoor = 0;              // initialise count of door
 pthread_mutex_t doorListMutex;
 
+struct door_reg_datagram
+{
+    char header[4]; // {'D', 'O', 'O', 'R'}
+    struct in_addr door_addr;
+    in_port_t door_port;
+};
+
 /* Struct for storing thread data */
 struct ThreadData
 {
     int client_socket;
-    // struct DoorData DoorList[50]; // Assuming no more than 50 doors will connect
-    // int numDoor;
     pthread_mutex_t mutex;
-    char scanned[17];         // To store scanned chars by card reader
     char buffer[BUFFER_SIZE]; // Buffer for sending strings between threads
     char firealarm_addr[10];
     int firealarm_port;
@@ -53,7 +58,9 @@ struct ThreadData
 
 void *handleTCP(void *p_client_socket);
 
-void *handleCardReader(void *p_thread_data);
+void *handleDoorAccess(void *p_thread_data);
+
+void *handleUDP_FailSafe(void *p_thread_data);
 
 int checkValid(const char *cardSearch, const char *cardID);
 
@@ -206,8 +213,6 @@ void *handleTCP(void *p_thread_data)
         if (sscanf(buffer, "CARDREADER %s HELLO#", cardReaderID) == 1)
         {
             // Do nothing just close connection
-            // Close and shutdown the connection
-            // printf("Received card reader ID: %s\n", cardReaderID);
             close_connection(client_socket);
             return NULL;
         }
@@ -216,6 +221,19 @@ void *handleTCP(void *p_thread_data)
             // handle Fire alarm initialisation
             printf("Fire alarm innit\n");
             thread_data->firealarm_port = split_Address_Port(firealarm_full_addr, thread_data->firealarm_addr);
+
+            // Spawn new thread to take care of innit
+            pthread_t firealarm_init;
+
+            // Spawn new thread that sends UDP datagram of all fail safe doors to fire alarm
+            if (pthread_create(&firealarm_init, NULL, handleUDP_FailSafe, thread_data) != 0)
+            {
+                perror("pthread_create()");
+                return NULL;
+            }
+
+            pthread_join(firealarm_init, NULL);
+
             close_connection(client_socket);
             return NULL;
         }
@@ -242,7 +260,21 @@ void *handleTCP(void *p_thread_data)
         numDoor++;
         pthread_mutex_unlock(&doorListMutex);
 
-        // printf("Num of doors in the list : %d\n", thread_data->numDoor);
+        // Sends DOOR reg datagram to Fire alarm
+
+        // Spawn new thread to take care of new Door
+        pthread_t newDoor;
+
+        // Spawn new thread that sends UDP datagram of all fail safe doors to fire alarm
+        if (pthread_create(&newDoor, NULL, handleUDP_FailSafe, thread_data) != 0)
+        {
+            perror("pthread_create()");
+            return NULL;
+        }
+
+        pthread_join(newDoor, NULL);
+
+        printf("Num of doors in the list : %d\n", numDoor);
 
         // Closes the connection
         close_connection(client_socket);
@@ -263,7 +295,7 @@ void *handleTCP(void *p_thread_data)
         numDoor++;
         pthread_mutex_unlock(&doorListMutex);
 
-        // printf("Num of doors in the list : %d\n", thread_data->numDoor);
+        printf("Num of doors in the list : %d\n", numDoor);
 
         // Closes the connection
         close_connection(client_socket);
@@ -279,7 +311,7 @@ void *handleTCP(void *p_thread_data)
         // create thread to handle card scan
         pthread_t cardReader;
 
-        if (pthread_create(&cardReader, NULL, handleCardReader, thread_data) != 0)
+        if (pthread_create(&cardReader, NULL, handleDoorAccess, thread_data) != 0)
         {
             perror("pthread_create");
             return NULL;
@@ -288,7 +320,7 @@ void *handleTCP(void *p_thread_data)
         // Wait for the child thread to finish
         if (pthread_join(cardReader, NULL) != 0)
         {
-            perror("pthread_join");
+            perror("pthread_join()");
             return NULL;
         }
 
@@ -305,7 +337,7 @@ void *handleTCP(void *p_thread_data)
     return NULL;
 }
 
-void *handleCardReader(void *p_thread_data)
+void *handleDoorAccess(void *p_thread_data)
 {
     struct ThreadData *thread_data = (struct ThreadData *)p_thread_data;
 
@@ -319,15 +351,13 @@ void *handleCardReader(void *p_thread_data)
 
     char *access;
 
-    printf("%s\n", string);
-
     if (sscanf(string, "CARDREADER %s SCANNED %[^#]#", cardReaderID, scanned) == 2)
     {
         // printf("Received card reader ID: %s\n", id);
         // printf("Received scanned code: %s\n", scanned);
         doorControllerID = checkValid(scanned, cardReaderID); // returns 0 if not valid
         if (doorControllerID != 0)
-        {   // Access is allowed
+        { // Access is allowed
             access = "ALLOWED#";
             send_message(client_socket, access); // Sends the response
             // Closes the connection
@@ -338,14 +368,11 @@ void *handleCardReader(void *p_thread_data)
             // Send OPEN# to Door Controller
             for (int i = 0; i < numDoor; i++) // Check for the Door ID
             {
-                printf("Im in the loop \n");
                 if (DoorList[i].id == doorControllerID)
                 {
-                    printf("Im in the if\n");
                     char *msg = "OPEN#";
                     // Sends message to Door Controller setting last param to zero doesnt close connection
-                    doorfd = send_message_to(msg, (int) DoorList[i].door_port, inet_ntoa(DoorList[i].door_addr), 0);
-                    printf("Msg send\n");
+                    doorfd = send_message_to(msg, (int)DoorList[i].door_port, inet_ntoa(DoorList[i].door_addr), 0);
                     doorIndex = i;
                     break; // Can break out of loop
                 }
@@ -355,12 +382,12 @@ void *handleCardReader(void *p_thread_data)
                 }
             }
 
-            //Receive the message send from the Door
+            // Receive the message send from the Door
             ssize_t bytes = receiveMessage(doorfd, string, BUFFER_SIZE);
             // printf("Received %s from door",string);
-            
-            /* Check if msg received is OPENING */ 
-            if (strcmp(string , "OPENING#") == 0)
+
+            /* Check if msg received is OPENING */
+            if (strcmp(string, "OPENING#") == 0)
             {
                 /* Wait till u receive OPENED# */
                 bytes = receiveMessage(doorfd, string, BUFFER_SIZE);
@@ -372,11 +399,11 @@ void *handleCardReader(void *p_thread_data)
                     /* Close connection */
                     close_connection(doorfd);
                     /* Wait for door_open duration */
-                    usleep(thread_data->doorOpenDuration); 
+                    usleep(thread_data->doorOpenDuration);
 
                     char *msg = "CLOSE#";
                     /* Open connection again and send CLOSE# (leaves connection open)*/
-                    doorfd = send_message_to(msg, (int)DoorList[doorIndex].door_port, inet_ntoa(DoorList[doorIndex].door_addr) , 0);
+                    doorfd = send_message_to(msg, (int)DoorList[doorIndex].door_port, inet_ntoa(DoorList[doorIndex].door_addr), 0);
                     // printf("door fd: %d\n", doorfd);
 
                     /* Extra */
@@ -384,11 +411,11 @@ void *handleCardReader(void *p_thread_data)
                     bytes = receiveMessage(doorfd, string, BUFFER_SIZE);
                     // printf("Received %s from door",string);
 
-                    if (strcmp(string , "CLOSING#") == 0) 
+                    if (strcmp(string, "CLOSING#") == 0)
                     {
                         // fprintf(stderr, "Got CLOSING#\n");
                         bytes = receiveMessage(doorfd, string, BUFFER_SIZE);
-                        if (strcmp(string , "CLOSED#") == 0) 
+                        if (strcmp(string, "CLOSED#") == 0)
                         {
                             // fprintf(stderr, "Got CLOSED#\n");
 
@@ -401,17 +428,15 @@ void *handleCardReader(void *p_thread_data)
                     fprintf(stderr, "Did not receive OPENED# from Door");
                     exit(1);
                 }
-
             }
             else
             {
                 fprintf(stderr, "Did not receive OPENING# from door");
                 exit(1);
             }
-
         }
         else
-        {   // Access is denied
+        { // Access is denied
             access = "DENIED#";
             send_message(client_socket, access); // Sends the response
             // Closes the connection
@@ -425,88 +450,80 @@ void *handleCardReader(void *p_thread_data)
         exit(1);
     }
 
-    fprintf(stderr, "Did not enter if in handleCardReader\n");
     return NULL;
-
 }
 
-// // Door open
-// if (strcmp(access , "ALLOWED#") == 0)
-// {
-//     int doorfd; // Store fd of door
-//     int doorIndex;
-//     // Send OPEN# to Door Controller
-//     for (int i = 0; i < thread_data->numDoor;i++) // Check for the Door ID
-//     {
-//         printf("Im in the loop \n");
-//         if (thread_data->DoorList[i].id == doorControllerID)
-//         {
-//             printf("Im in the if\n");
-//             char *buffer = "OPEN#";
-//             // Sends message to Door Controller setting last param to zero doesnt close connection
-//             doorfd = send_message_to(buffer, thread_data->DoorList[i].door_port, inet_ntoa(thread_data->DoorList[i].door_addr) , 0);
-//             printf("Msg send\n");
-//             doorIndex = i;
-//             break; // Can break out of loop
-//         }
-//     }
+void *handleUDP_FailSafe(void *p_thread_data)
+{
+    struct ThreadData *thread_data = (struct ThreadData *)p_thread_data;
+    int fireAlarmPort = thread_data->firealarm_port;
 
-//     // Receive the message send from the Door
-//     bytes = receiveMessage(doorfd, buffer, BUFFER_SIZE);
+    char fireAlarmAddr[10];
+    strcpy(fireAlarmAddr, thread_data->firealarm_addr);
 
-//     if (strcmp(buffer , "OPENING#") == 0)
-//     {
-//         // Wait till u receive OPENED#
+    if (fireAlarmPort == 0)
+    {
+        printf("Fire alarms 0\n");
+        // fire alarm not initialised yet child thread returns
+        return NULL;
+    }
+    else if (numDoor == 0)
+    {
+        printf("Num doors 0\n");
+        // No Doors initialised yet child thread returns
+        return NULL;
+    }
 
-//         bytes = receiveMessage(doorfd, buffer, BUFFER_SIZE);
+    /* Create send socket to send UDP datagram to fire alarm */
+    int sendfd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sendfd == -1)
+    {
+        perror("socket()");
+        exit(1);
+    }
 
-//         if (strcmp(buffer, "OPENED#") == 0)
-//         {
-//             // Close connection
-//             close_connection(doorfd);
-//             usleep(thread_data->doorOpenDuration); // Wait for door_open duration
-//             char *buffer = "CLOSE#";
-//             // Sends message to Door and closes connection
-//             doorfd = send_message_to(buffer, thread_data->DoorList[doorIndex].door_port, inet_ntoa(thread_data->DoorList[doorIndex].door_addr) , 0);
-//             printf("door fd: %d\n", doorfd);
+    /* Declare a data structure to specify the socket address of firealarm (address + Port) */
+    struct sockaddr_in sendtoaddr;
+    (void)memset(&sendtoaddr, 0, sizeof(sendtoaddr));
+    sendtoaddr.sin_family = AF_INET;
+    sendtoaddr.sin_port = htons(fireAlarmPort);
+    if (inet_pton(AF_INET, fireAlarmAddr, &sendtoaddr.sin_addr) != 1)
+    {
+        fprintf(stderr, "inet_pton(%s)\n", fireAlarmAddr);
+        exit(1);
+    }
+    socklen_t sendtoaddr_len = sizeof(sendtoaddr);
 
-//             bytes = receiveMessage(doorfd, buffer, BUFFER_SIZE);
-//             if (strcmp(buffer , "CLOSING#") == 0) {
-//                 fprintf(stderr, "Got CLOSING#\n");
-//                 bytes = receiveMessage(doorfd, buffer, BUFFER_SIZE);
-//                 if (strcmp(buffer , "CLOSED#") == 0) {
-//                     fprintf(stderr, "Got CLOSED#\n");
+    for (int i = 0; i < numDoor; i++)
+    {
+        if (DoorList[i].fail_safe == 'y' && DoorList[i].acknowledged == false) // Fail safe door and Door reg datagram not send
+        {
+            struct door_reg_datagram regDatagram;
+            memcpy(regDatagram.header, "DOOR", 4);         // Writes DOOR into header
+            regDatagram.door_addr = DoorList[i].door_addr; // Copies value of door addr
+            regDatagram.door_port = DoorList[i].door_port; // Copies value of door port
 
-//                     close_connection(doorfd);
-//                 }
-//             }
-//         }
-//         else
-//         {
-//             printf("%s\n", buffer);
-//             fprintf(stderr, "Invalid response from Door\n");
-//             exit(1);
-//         }
+            // Send door reg datagram to overseer
+            (void)sendto(sendfd, &regDatagram, (size_t)sizeof(struct door_reg_datagram), 0, (const struct sockaddr *)&sendtoaddr, sendtoaddr_len);
 
-//     }
-//     else
-//     {
-//         printf("%s\n", buffer);
-//         fprintf(stderr, "Invalid response from Door\n");
-//         exit(1);
-//     }
+            // Receive DREG datagram
 
-// }
-// else
-// {
-//     fprintf(stderr, "Access not defined yet\n");
-//     exit(1);
-// }
+            // Update current door acknowledgement status to true
+            pthread_mutex_lock(&doorListMutex);
+            DoorList[i].acknowledged = true;
+            pthread_mutex_unlock(&doorListMutex);
 
-// Close and shutdown the connection
-// close_connection(client_socket);
-//     return NULL;
-// }
+            printf("New acknowledgement %d", DoorList[i].acknowledged);
+        }
+        else
+        {
+            continue;
+        }
+    }
+
+    close_connection(sendfd);
+    return NULL;
+}
 
 /// <summary>
 /// Function takes input of card number and reader where card was scanned. Checks
@@ -622,42 +639,15 @@ int initializeDoorData(struct DoorData *door, const char *buffer, int ifFailSafe
             door->fail_safe = 'n'; // Assuming it's always 'y' for fail_safe
         }
 
-        printf("Door ID: %d\n", door->id);
-        printf("Door Port: %d\n", door->door_port);
-        printf("Door IP: %s\n", inet_ntoa(door->door_addr));
-        printf("Fail Safe: %c\n", door->fail_safe);
+        door->acknowledged = false;
+
+        // printf("Door ID: %d\n", door->id);
+        // printf("Door Port: %d\n", door->door_port);
+        // printf("Door IP: %s\n", inet_ntoa(door->door_addr));
+        // printf("Fail Safe: %c\n", door->fail_safe);
 
         return 1; // Return 1 to indicate success
     }
 
     return 0; // Return 0 to indicate failure (input doesn't match the DOOR format)
-}
-
-//<summary>
-// Send Door registration datagram to firealarm
-//</summary>
-int handleUDP(int firealarmPort, char *firealarmAddr)
-{
-    /* Create send socket to send UDP datagram to fire alarm */
-    int sendfd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sendfd == -1)
-    {
-        perror("socket()");
-        exit(1);
-    }
-
-    /* Declare a data structure to specify the socket address of firealarm (address + Port) */
-    struct sockaddr_in sendtoaddr;
-    (void)memset(&sendtoaddr, 0, sizeof(sendtoaddr));
-    sendtoaddr.sin_family = AF_INET;
-    sendtoaddr.sin_port = htons(firealarmPort);
-    if (inet_pton(AF_INET, firealarmAddr, &sendtoaddr.sin_addr) != 1)
-    {
-        fprintf(stderr, "inet_pton(%s)\n", firealarmAddr);
-        exit(1);
-    }
-    // socklen_t senderaddr_len = sizeof(sendtoaddr);
-
-    // Create Dreg Datagram
-    return 0;
 }

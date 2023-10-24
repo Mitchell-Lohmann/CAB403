@@ -92,7 +92,7 @@ int connect_to(int program_port, const char *program_addr)
 //</summary>
 int send_message_to(const char *buf, const int program_port, const char *program_addr, int ifClose)
 {
-    fprintf(stderr, "send_message_to(%s,%d,%s,%d)\n", buf, program_port, program_addr, ifClose);
+    
     /* Connects to overseer before sending message */
     int fd = connect_to(program_port, program_addr);
     if (fd == -1)
@@ -100,7 +100,6 @@ int send_message_to(const char *buf, const int program_port, const char *program
         perror("connect_to");
         return -1;
     }
-    fprintf(stderr, "Sending with fd %d\n", fd);
 
     /* Sends the message in the buffer*/
     if (send(fd, buf, strlen(buf), 0) == -1)
