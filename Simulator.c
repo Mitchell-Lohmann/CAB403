@@ -82,6 +82,7 @@ void init(char *scenarioName)
                     printf("overseer executed\n"); // Debug line
                     execl(argument0, argument1, argument2, argument3, argument4, argument5, argument6, NULL);
                     perror("execl");
+                    
                 }
                 else if (!strcmp(token, "door"))
                 {

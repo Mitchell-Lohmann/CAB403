@@ -101,9 +101,9 @@ int main(int argc, char **argv)
     /* Normal operation */
 
     // Create an addr_entry for this tempsensor
-    struct addr_entry sensor_addr;
-    sensor_addr.sensor_port = (in_port_t)tempsensor_port;
-    if (inet_pton(AF_INET, tempsensor_addr, &sensor_addr.sensor_addr) <= 0) {
+    struct addr_entry sensorAddr;
+    sensorAddr.sensor_port = htons(tempsensor_port);
+    if (inet_pton(AF_INET, tempsensor_addr, &sensorAddr.sensor_addr) <= 0) {
         perror("inet_pton()");
         exit(1);
     }
@@ -187,7 +187,7 @@ int main(int argc, char **argv)
 
             // Add addr of this tempsensor
             datagram.address_count = 1;
-            datagram.address_list[0] = sensor_addr;
+            datagram.address_list[0] = sensorAddr;
 
             // Send datagram to each receiver 
             for (int i = 0; i < receiverNum; i++)
@@ -211,7 +211,7 @@ int main(int argc, char **argv)
 
 
                 /* Debug */
-                printf("Datagram send from %d to %d\n", datagram.id, i);
+                // printf("Datagram send from %d to %d\n", datagram.id, receiver_port[i]);
 
             }
 
@@ -251,11 +251,11 @@ int main(int argc, char **argv)
             }
 
             /* Debug*/
-            printf("Datagram received from %d by %d\n", receivedDatagram.id, id);
+            // printf("Datagram received from %d by %d\n", receivedDatagram.id, id);
 
 
             // Update received datagrams address list with the current temp sensors sensor addr
-            receivedDatagram.address_list[receivedDatagram.address_count] = sensor_addr;
+            receivedDatagram.address_list[receivedDatagram.address_count] = sensorAddr;
             receivedDatagram.address_count++;
 
             // Send this new datagram to each receiver if receiver not in address list 
@@ -263,7 +263,7 @@ int main(int argc, char **argv)
             {// Loop starts
 
                 /* Debug */
-                printf("Sending new datagram from %d\n", id);
+                // printf("Sending new datagram from %d\n", id);
 
 
                 // Check if receiver present in the address list of the received datagram
@@ -275,10 +275,10 @@ int main(int argc, char **argv)
                     // Check if ther is a match
                     if(match == false)
                     {
-                        int port_entry = htons(receivedDatagram.address_list[j].sensor_port);
+                        in_port_t port_entry = receivedDatagram.address_list[j].sensor_port;
 
                         // Compare to receiver port
-                        if (receiver_port[i] == port_entry)
+                        if (htons(receiver_port[i]) == port_entry)
                         {
                             match = true;
                             break;
@@ -308,7 +308,7 @@ int main(int argc, char **argv)
                     } 
 
                     /* Debug */
-                    printf("Sending new datagram to receiver number %d from %d\n", i, id);
+                    // printf("Sending new datagram to receiver number %d from %d\n", i, id);
 
                     
 
