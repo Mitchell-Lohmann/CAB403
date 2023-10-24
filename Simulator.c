@@ -63,7 +63,6 @@ void init(char *scenarioName)
 
                 if (!strcmp(token, "overseer"))
                 {
-                    printf("overseer found in line %s\n", lineA); // Debug line
                     /* Check that sscanf is successful */
                     if(sscanf(lineA, "INIT %s %s %s %s %s %s", argument1, argument2, argument3, argument4, argument5, argument6) != 6){
                         perror("sscanf failed");
