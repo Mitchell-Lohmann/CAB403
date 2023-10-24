@@ -152,7 +152,7 @@ void initOverseer(char *scenarioName, char serverAddress[16], int serverPort)
             exit(1);
         }
 
-        snprintf(argumentAddressPort, 128, "%s:%d", serverAddress, 3000);
+        snprintf(argumentAddressPort, 128, "%s:%d", serverAddress, serverPort);
 
         execl("./overseer", "overseer", argumentAddressPort, argument2, argument3, argument4, argument5, argument6, NULL);
         perror("execl");
