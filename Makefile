@@ -9,7 +9,7 @@ simulator: Simulator.c
 firealarm: Firealarm.c
 	gcc -o firealarm Firealarm.c common.c -Wall 
 
-cardreader: Cardreader.c common.c
+cardreader: Cardreader.c 
 	gcc -o cardreader Cardreader.c common.c -Wall 
 
 door: Door.c
