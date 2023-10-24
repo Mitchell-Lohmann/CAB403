@@ -53,10 +53,11 @@ void change_door_status(shm_door *shared, char status_to_changeto)
 
 int main(int argc, char **argv)
 {
+    printf("Door Launched at address %s\n", argv[2]);
     /* Check for error in input arguments */
     if (argc < 7)
     {
-        fprintf(stderr, "Missing command line arguments, {id} {address:port} {FAIL_SAFE | FAIL_SECURE} {shared memory path} {shared memory offset} {overseer address:port}");
+        fprintf(stderr, "Missing command line arguments, {id} {address:port} {FAIL_SAFE | FAIL_SECURE} {shared memory path} {shared memory offset} {overseer address:port} \n");
         exit(1);
     }
 
@@ -122,7 +123,7 @@ int main(int argc, char **argv)
     }
 
     /* Sends the initialisation message to overseer */
-    send_message_to(buff, overseer_port, overseer_addr);
+    send_message_to(buff, overseer_port, overseer_addr, 1);
 
     /* Open share memory segment */
     int shm_fd = shm_open(shm_path, O_RDWR, 0666); // Creating for testing purposes

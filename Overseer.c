@@ -54,7 +54,7 @@ int initializeDoorData(struct DoorData *door, const char *buffer, int ifFailSafe
 
 int main(int argc, char **argv)
 {
-    printf("Hi im here\n");
+    printf("Overseer Launched at address %s\n", argv[1]);
     /* Check for error in input arguments */
     // if(argc < 8)
     // {

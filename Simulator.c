@@ -21,7 +21,7 @@
 /// </summary>
 void init(char *scenarioName)
 {
-    int serverPort = 3000;
+    int serverPort = 3001;
     char serverAddress[64] = "127.0.0.1";
 
     /* Read in file and confirm success */
@@ -69,17 +69,10 @@ void init(char *scenarioName)
                         perror("sscanf failed");
                         exit(1);
                     }
-                    printf("Sscanf returned: %d %d %s %s %s \n", atoi(argument2), atoi(argument3), argument4, argument5, argument6); // Debug line
 
-                    snprintf(argumentAddressPort, 64, "%s:%d", serverAddress, serverPort);
-                    // sprintf(serverPortChar, "%d", serverPort); 
-                    // strcpy(argumentAddress, serverAddress);
-                    // strcat(argumentAddress,  ":");
-                    // strcat(argumentAddress,  serverPortChar);
-                    // printf("%s\n", argumentAddress); // Debug line
+                    snprintf(argumentAddressPort, 128, "%s:%d", serverAddress, 3000);
 
                     strcpy(argument0, "./overseer");
-                    printf("overseer executed\n"); // Debug line
                     execl(argument0, argument1, argumentAddressPort, argument2, argument3, argument4, argument5, argument6, NULL);
                     perror("execl");
 
@@ -93,11 +86,11 @@ void init(char *scenarioName)
                         exit(1);
                     }
 
-                    snprintf(argumentAddressPort, 64, "%s:%d", serverAddress, serverPort);
-                    printf("Sscanf returned: %d %s %d\n", atoi(argument2), argument3, atoi(argument4)); // Debug line
+                    snprintf(argumentAddressPort, 128, "%s:%d", serverAddress, serverPort);
 
                     strcpy(argument0, "./door");
-                    execl(argument0, argument1, argument2, argumentAddressPort, argument3, argument4, NULL);
+
+                    execl(argument0, argument1, argument2, argumentAddressPort, argument3, "/shm", argument4, "127.0.0.1:3000", NULL);
                     perror("execl");
                 }
                 else if (!strcmp(token, "cardreader"))
