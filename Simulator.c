@@ -62,9 +62,11 @@ void init(char *scenarioName)
                 return;
             }
 
+            char argument0[64], argument1[64], argument2[64], argument3[64], argument4[46], argument5[64], argument6[64];
+
             if (child_pid == 0)
             {
-                char argument1[64], argument2[64], argument3[64], argument4[46], argument5[64], argument6[64];
+                
 
                 if (!strcmp(token, "overseer"))
                 {
@@ -74,17 +76,27 @@ void init(char *scenarioName)
                         perror("sscanf failed");
                         exit(1);
                     }
-                    printf("Sscanf returned: %d %d %s %s %s \n", atoi(argument2), atoi(argument3), argument4, argument5, argument6);
+                    printf("Sscanf returned: %d %d %s %s %s \n", atoi(argument2), atoi(argument3), argument4, argument5, argument6); // Debug line
 
-                    strcpy(argument1, "overseer"); // Debug line
+                    strcpy(argument0, "./overseer");
                     printf("overseer executed\n"); // Debug line
-                    execl(argument1, argument1, argument2, argument3, argument4, argument5, argument6, NULL);
-                    // Fork
-                    // Replace child process with overseer process
+                    execl(argument0, argument1, argument2, argument3, argument4, argument5, argument6, NULL);
+                    perror("execl");
+
                 }
                 else if (!strcmp(token, "door"))
                 {
                     //printf("door found in line %s\n", lineA);
+                     /* Check that sscanf is successful */
+                    if(sscanf(lineA, "INIT door %s %s %s", argument2, argument3, argument4) != 3){
+                        perror("sscanf failed");
+                        exit(1);
+                    }
+
+                    printf("Sscanf returned: %d %s %d\n", atoi(argument2), argument3, atoi(argument4)); // Debug line
+
+                    strcpy(argument1, "door");
+                    execl(argument1, argument1, argument2, argument3, argument4, NULL);
                 }
                 else if (!strcmp(token, "cardreader"))
                 {
