@@ -30,6 +30,9 @@ typedef struct
 /// </summary>
 void init(char *scenarioName)
 {
+    int serverPort = 3000;
+    char serverAddress[64] = "127.0.0.1";
+
     /* Read in file and confirm success */
     FILE *fhA = fopen(scenarioName, "r");
     char lineA[100]; // Assuming a line won't exceed 100 characters
@@ -62,7 +65,7 @@ void init(char *scenarioName)
                 return;
             }
 
-            char argument0[64], argument1[64], argument2[64], argument3[64], argument4[46], argument5[64], argument6[64];
+            char serverPortChar[64], argumentAddress[64], argument0[64], argument1[64], argument2[64], argument3[64], argument4[64], argument5[64], argument6[64];
 
             if (child_pid == 0)
             {
@@ -78,9 +81,16 @@ void init(char *scenarioName)
                     }
                     printf("Sscanf returned: %d %d %s %s %s \n", atoi(argument2), atoi(argument3), argument4, argument5, argument6); // Debug line
 
+                    sprintf(serverPortChar, "%d", serverPort); 
+                    strcpy(argumentAddress, serverAddress);
+                    strcat(argumentAddress,  ":");
+                    strcat(argumentAddress,  serverPortChar);
+                    printf("%s\n", argumentAddress); // Debug line
+
                     strcpy(argument0, "./overseer");
+                    
                     printf("overseer executed\n"); // Debug line
-                    execl(argument0, argument1, argument2, argument3, argument4, argument5, argument6, NULL);
+                    execl(argument0, argument1, argumentAddress, argument2, argument3, argument4, argument5, argument6, NULL);
                     perror("execl");
                     
                 }
