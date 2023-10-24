@@ -64,7 +64,8 @@ void init(char *scenarioName)
                 if (!strcmp(token, "overseer"))
                 {
                     /* Check that sscanf is successful */
-                    if(sscanf(lineA, "INIT %s %s %s %s %s %s", argument1, argument2, argument3, argument4, argument5, argument6) != 6){
+                    if (sscanf(lineA, "INIT %s %s %s %s %s %s", argument1, argument2, argument3, argument4, argument5, argument6) != 6)
+                    {
                         perror("sscanf failed");
                         exit(1);
                     }
@@ -74,13 +75,13 @@ void init(char *scenarioName)
                     strcpy(argument0, "./overseer");
                     execl(argument0, argument1, argumentAddressPort, argument2, argument3, argument4, argument5, argument6, NULL);
                     perror("execl");
-
                 }
                 else if (!strcmp(token, "door"))
                 {
-                    //printf("door found in line %s\n", lineA);
-                     /* Check that sscanf is successful */
-                    if(sscanf(lineA, "INIT %s %s %s %s", argument1, argument2, argument3, argument4) != 4){
+                    // printf("door found in line %s\n", lineA);
+                    /* Check that sscanf is successful */
+                    if (sscanf(lineA, "INIT %s %s %s %s", argument1, argument2, argument3, argument4) != 4)
+                    {
                         perror("sscanf failed");
                         exit(1);
                     }
@@ -94,27 +95,27 @@ void init(char *scenarioName)
                 }
                 else if (!strcmp(token, "cardreader"))
                 {
-                    //printf("cardreader found in line %s\n", lineA);
+                    // printf("cardreader found in line %s\n", lineA);
                 }
                 else if (!strcmp(token, "firealarm"))
                 {
-                    //printf("firealarm found in line %s\n", lineA);
+                    // printf("firealarm found in line %s\n", lineA);
                 }
                 else if (!strcmp(token, "callpoint"))
                 {
-                    //printf("callpoint found in line %s\n", lineA);
+                    // printf("callpoint found in line %s\n", lineA);
                 }
                 else if (!strcmp(token, "tempsensor"))
                 {
-                    //printf("tempsensor found in line %s\n", lineA);
+                    // printf("tempsensor found in line %s\n", lineA);
                 }
                 else if (!strcmp(token, "destselect"))
                 {
-                    //printf("destselect found in line %s\n", lineA);
+                    // printf("destselect found in line %s\n", lineA);
                 }
                 else if (!strcmp(token, "camera"))
                 {
-                    //printf("camera found in line %s\n", lineA);
+                    // printf("camera found in line %s\n", lineA);
                 }
             }
             serverPort++;
@@ -122,12 +123,14 @@ void init(char *scenarioName)
     }
 }
 
-void initOverseer(char *scenarioName, char serverAddress[16], int serverPort){
+void initOverseer(char *scenarioName, char serverAddress[16], int serverPort)
+{
     /* Create child process */
     pid_t child_pid = fork();
 
     /* Parent process to become overseer */
-    if(child_pid != 0){
+    if (child_pid != 0)
+    {
         FILE *fhA = fopen(scenarioName, "r");
         char lineA[100]; // Assuming a line won't exceed 100 characters
 
@@ -137,12 +140,29 @@ void initOverseer(char *scenarioName, char serverAddress[16], int serverPort){
             perror("Error opening scenario file");
             return;
         }
-        
+
+        fgets(lineA, sizeof(lineA), fhA);
+
+        char argumentAddressPort[64], argument0[64], argument1[64], argument2[64], argument3[64], argument4[64], argument5[64], argument6[64];
+
+        /* Check that sscanf is successful */
+        if (sscanf(lineA, "INIT overseer %s %s %s %s %s", argument2, argument3, argument4, argument5, argument6) != 5)
+        {
+            perror("sscanf failed");
+            exit(1);
+        }
+
+        snprintf(argumentAddressPort, 128, "%s:%d", serverAddress, 3000);
+
+        execl("./overseer", "overseer", argumentAddressPort, argument2, argument3, argument4, argument5, argument6, NULL);
+        perror("execl");
     }
 
     /* Child process to continue as simulator */
-    if(child_pid == 0){
+    if (child_pid == 0)
+    {
         return;
+        printf("Child launched at ID %d", child_pid);
     }
 
     /* Confirm successful creation of child process */
@@ -165,7 +185,7 @@ int main(int argc, char **argv)
     char serverAddress[16] = "127.0.0.1";
 
     initOverseer(argv[1], serverAddress, serverPort);
-    init(argv[1]);
+    // init(argv[1]);
 
     return 0;
 }
