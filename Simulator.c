@@ -122,6 +122,37 @@ void init(char *scenarioName)
     }
 }
 
+void initOverseer(char *scenarioName, char serverAddress[16], int serverPort){
+    /* Create child process */
+    pid_t child_pid = fork();
+
+    /* Parent process to become overseer */
+    if(child_pid != 0){
+        FILE *fhA = fopen(scenarioName, "r");
+        char lineA[100]; // Assuming a line won't exceed 100 characters
+
+        /* Check to see if file opened */
+        if (fhA == NULL)
+        {
+            perror("Error opening scenario file");
+            return;
+        }
+        
+    }
+
+    /* Child process to continue as simulator */
+    if(child_pid == 0){
+        return;
+    }
+
+    /* Confirm successful creation of child process */
+    if (child_pid == -1)
+    {
+        perror("Fork failed");
+        exit(1);
+    }
+}
+
 int main(int argc, char **argv)
 {
     if (argc < 1)
@@ -130,11 +161,10 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    for (int i = 1; i < argc; i++)
-    {
-        printf("Argument %d: %s\n", i, argv[i]);
-    }
+    int serverPort = 3000;
+    char serverAddress[16] = "127.0.0.1";
 
+    initOverseer(argv[1], serverAddress, serverPort);
     init(argv[1]);
 
     return 0;
