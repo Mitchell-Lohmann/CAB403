@@ -336,6 +336,17 @@ void *handleCardReader(void *p_thread_data)
                 char *buffer = "CLOSE#";
                 // Sends message to Door and closes connection
                 doorfd = send_message_to(buffer, thread_data->DoorList[doorIndex].door_port, inet_ntoa(thread_data->DoorList[doorIndex].door_addr) , 0);
+                printf("door fd: %d\n", doorfd);
+                bytes = receiveMessage(doorfd, buffer, BUFFER_SIZE);
+                if (strcmp(buffer , "CLOSING#") == 0) {
+                    fprintf(stderr, "Got CLOSING#\n");
+                    bytes = receiveMessage(doorfd, buffer, BUFFER_SIZE);
+                    if (strcmp(buffer , "CLOSED#") == 0) {
+                        fprintf(stderr, "Got CLOSED#\n");
+
+                        close_connection(doorfd);
+                    }
+                }
             }
             else
             {
@@ -362,7 +373,7 @@ void *handleCardReader(void *p_thread_data)
 
 
     // Close and shutdown the connection
-    close_connection(client_socket);
+    //close_connection(client_socket);
     return NULL;
 }
 /// <summary>

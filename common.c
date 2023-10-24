@@ -92,6 +92,7 @@ int connect_to(int program_port, const char *program_addr)
 //</summary>
 int send_message_to(const char *buf, const int program_port, const char *program_addr, int ifClose)
 {
+    fprintf(stderr, "send_message_to(%s,%d,%s,%d)\n", buf, program_port, program_addr, ifClose);
     /* Connects to overseer before sending message */
     int fd = connect_to(program_port, program_addr);
     if (fd == -1)
@@ -99,6 +100,7 @@ int send_message_to(const char *buf, const int program_port, const char *program
         perror("connect_to");
         return -1;
     }
+    fprintf(stderr, "Sending with fd %d\n", fd);
 
     /* Sends the message in the buffer*/
     if (send(fd, buf, strlen(buf), 0) == -1)
@@ -116,7 +118,7 @@ int send_message_to(const char *buf, const int program_port, const char *program
             return -1;
         }
     }
-    else if (!(ifClose)) // Usually for listening for a response
+    else  // Usually for listening for a response
     {
         return fd; // returns file discriptor
     }
@@ -132,7 +134,7 @@ void close_connection(int client_fd)
     /* close the socket used to receive data */
     if (close(client_fd) == -1)
     {
-        perror("exit()");
+        perror("close_connection close()");
         exit(1);
     }
 }
@@ -151,7 +153,7 @@ void closeShutdown_connection(int client_fd)
     /* close the socket used to receive data */
     if (close(client_fd) == -1)
     {
-        perror("exit()");
+        perror("closeShutdown_connection close()");
         exit(1);
     }
 }

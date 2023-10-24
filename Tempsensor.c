@@ -211,7 +211,7 @@ int main(int argc, char **argv)
 
 
                 /* Debug */
-                // printf("Datagram send from %d to %d\n", datagram.id, i);
+                printf("Datagram send from %d to %d\n", datagram.id, i);
 
             }
 
@@ -251,7 +251,7 @@ int main(int argc, char **argv)
             }
 
             /* Debug*/
-            // printf("Datagram received from %d by %d\n", receivedDatagram.id, id);
+            printf("Datagram received from %d by %d\n", receivedDatagram.id, id);
 
 
             // Update received datagrams address list with the current temp sensors sensor addr
@@ -263,7 +263,7 @@ int main(int argc, char **argv)
             {// Loop starts
 
                 /* Debug */
-                // printf("Sending new datagram from %d\n", id);
+                printf("Sending new datagram from %d\n", id);
 
 
                 // Check if receiver present in the address list of the received datagram
@@ -308,7 +308,7 @@ int main(int argc, char **argv)
                     } 
 
                     /* Debug */
-                    // printf("Sending new datagram to receiver number %d from %d\n", i, id);
+                    printf("Sending new datagram to receiver number %d from %d\n", i, id);
 
                     
 
