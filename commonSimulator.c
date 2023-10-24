@@ -52,3 +52,21 @@ typedef struct
     pthread_mutex_t mutex;
     pthread_cond_t cond;
 } shm_overseer;
+
+
+typedef struct {
+    float temperature;
+    pthread_mutex_t mutex;
+    pthread_cond_t cond;
+}shm_tempsensor;
+
+
+typedef struct{
+    shm_overseer overseer;
+    shm_firealarm firealarm;
+    shm_cardreader cardreader[40];
+    shm_door doors[20];
+    shm_tempsensor tempsensor[20];
+    shm_callpoint callpoint[20];
+
+}sharedMemory;

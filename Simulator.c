@@ -69,7 +69,6 @@ void init(char *scenarioName)
 
             if (child_pid == 0)
             {
-                
 
                 if (!strcmp(token, "overseer"))
                 {
@@ -92,7 +91,7 @@ void init(char *scenarioName)
                     printf("overseer executed\n"); // Debug line
                     execl(argument0, argument1, argumentAddress, argument2, argument3, argument4, argument5, argument6, NULL);
                     perror("execl");
-                    
+
                 }
                 else if (!strcmp(token, "door"))
                 {
