@@ -10,6 +10,10 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <sys/stat.h>
+#include <sys/time.h>
+#include <time.h>
+#include <errno.h> // Include errno.h for error code definitions
 #include "common.h"
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
@@ -32,15 +36,13 @@ struct DoorData
     bool acknowledged;
 };
 
-/* Global Variables */
-
-struct DoorData DoorList[50]; // Assuming no more than 50 doors will connect
-int numDoor = 0;              // Initialise count of door
-int doorOpenDuration;         // Door open Duration
-int datagramResendDelay;      // Datagram resend delay
-char firealarm_addr[10];      // Stores fire alarms addr
-int firealarm_port;           // Stores fire alarms port number
-pthread_mutex_t doorListMutex;
+/*Struct for storing Temp sensor data */
+struct TempData
+{
+    float temp;
+    int id;
+    struct timeval timestamp;
+};
 
 struct door_reg_datagram
 {
@@ -49,25 +51,55 @@ struct door_reg_datagram
     in_port_t door_port;
 };
 
-/* Struct for storing thread data */
-struct ThreadData
+struct addr_entry
 {
-    int client_socket;
-    pthread_mutex_t mutex;
-    char buffer[BUFFER_SIZE]; // Buffer for sending strings between threads
+    struct in_addr sensor_addr;
+    in_port_t sensor_port;
 };
+
+struct datagram_format
+{
+    char header[4]; // {'T', 'E', 'M', 'P'}
+    struct timeval timestamp;
+    float temperature;
+    uint16_t id;
+    uint8_t address_count;
+    struct addr_entry address_list[50];
+};
+
+/* Global Variables */
+
+struct DoorData DoorList[50]; // Assuming no more than 50 doors will connect
+struct TempData TempList[50]; // Assuming no more than 50 temp sensors are present
+int numDoor = 0;              // Initialise count of door
+int numTemp = 0;              // Initialise number of temp sensors
+int doorOpenDuration;         // Door open Duration
+int datagramResendDelay;      // Datagram resend delay
+char firealarm_addr[10];      // Stores fire alarms addr
+int firealarm_port;           // Stores fire alarms port number
+int ifDregReceived = 0;       // Flag to keep track if Dreg is received
+pthread_mutex_t globalMutex;
+pthread_mutex_t tempMutex;
 
 /* Function Definitions */
 
 void *handleTCP(void *p_client_socket);
 
+void *handleUDP(void *p_recvsockfd);
+
+void *handleManualAccess(void *arg);
+
 int sendDoorRegDatagram(void *args);
 
-int handleCardScan(int client_socket, char* string);
+int handleCardScan(int client_socket, char *string);
 
 int checkValid(const char *cardSearch, const char *cardID);
 
 int initializeDoorData(struct DoorData *door, const char *buffer, int ifFailSafe);
+
+int DoorOpen(int doorID);
+
+void DoorClose(int doorID);
 
 int main(int argc, char **argv)
 {
@@ -170,22 +202,28 @@ int main(int argc, char **argv)
         perror("bind()");
         exit(1);
     }
-    
-    pthread_mutex_init(&doorListMutex, NULL); // Initialise mutex for doorlist
 
-    // // Malloc memory to store socket fd
-    // int *UDP_socket = malloc(sizeof(int));
-    // *UDP_socket = UDP_recvsockfd;
+    pthread_mutex_init(&globalMutex, NULL); // Initialise mutex for doorlist
+    pthread_mutex_init(&tempMutex, NULL);   // Initialise mutex for doorlist
 
-    // // Spawn a thread to take care receiving
-    // pthread_t UDP;
+    // Malloc memory to store socket fd
+    int *UDP_socket = malloc(sizeof(int));
+    *UDP_socket = UDP_recvsockfd;
 
-    // if (pthread_create(&UDP,NULL, NULL, UDP_socket) != 0)
-    // {
-    //     perror("pthread_create()");
-    //     exit(1);
-    // }
+    // Spawn a thread to take care receiving UDP datagram and Manual access
+    pthread_t UDP, manualAccess;
 
+    if (pthread_create(&UDP, NULL, handleUDP, UDP_socket) != 0)
+    {
+        perror("pthread_create()");
+        exit(1);
+    }
+
+    if (pthread_create(&manualAccess, NULL, handleManualAccess, NULL) != 0)
+    {
+        perror("pthread_create()");
+        exit(1);
+    }
 
     /* Infinite Loop */
     while (1)
@@ -199,18 +237,8 @@ int main(int argc, char **argv)
             exit(1);
         }
 
-        // Create Thread Data on the heap
-        struct ThreadData *thread_data = (struct ThreadData *)malloc(sizeof(struct ThreadData));
-        if (thread_data == NULL)
-        {
-            perror("malloc");
-            exit(1);
-        }
-
-        pthread_mutex_init(&thread_data->mutex, NULL); // Initialise mutex for scanned char
         int *tcp_socket = malloc(sizeof(int));
         *tcp_socket = client_socket;
-
 
         /* Initialise pthreads */
         pthread_t thread;
@@ -221,10 +249,9 @@ int main(int argc, char **argv)
             exit(1);
         }
 
-
     } // end while
 
-    pthread_mutex_destroy(&doorListMutex);
+    pthread_mutex_destroy(&globalMutex);
 
 } // end main
 
@@ -252,7 +279,6 @@ void *handleTCP(void *p_tcp_socket)
         perror("recv()");
         exit(1);
     }
-
 
     /* Validation */
     // Parse the received message (e.g., "CARDREADER {id} HELLO#")
@@ -295,11 +321,12 @@ void *handleTCP(void *p_tcp_socket)
             exit(1);
         }
 
-        pthread_mutex_lock(&doorListMutex);
+        pthread_mutex_lock(&globalMutex);
         // Add door to door list and increment current number of doors
         DoorList[numDoor] = Door;
         numDoor++;
-        pthread_mutex_unlock(&doorListMutex);
+        ifDregReceived = 0;
+        pthread_mutex_unlock(&globalMutex);
 
         // Sends DOOR reg datagram to Fire alarm
         if (sendDoorRegDatagram(NULL) != 0)
@@ -323,13 +350,13 @@ void *handleTCP(void *p_tcp_socket)
             exit(1);
         }
 
-        pthread_mutex_lock(&doorListMutex);
+        pthread_mutex_lock(&globalMutex);
         // Add door to door list and increment current number of doors
         DoorList[numDoor] = Door;
         numDoor++;
-        pthread_mutex_unlock(&doorListMutex);
+        pthread_mutex_unlock(&globalMutex);
 
-        printf("Num of doors in the list : %d\n", numDoor);
+        // printf("Num of doors in the list : %d\n", numDoor);
 
         // Closes the connection
         close_connection(client_socket);
@@ -357,11 +384,225 @@ void *handleTCP(void *p_tcp_socket)
     return NULL;
 }
 
+//<summary>
+// Thread function to handle UDP datagrams received by overseer
+//</summary>
+void *handleUDP(void *p_recvsockfd)
+{
+    char buff[512]; // Safe buffer size for UDP communications
+
+    int receivefd = *(int *)p_recvsockfd;
+    free(p_recvsockfd); // We dont need it anymore
+    struct sockaddr_in  clientaddr;
+    socklen_t client_size = sizeof(clientaddr);
+
+    for (;;)
+    {
+        ssize_t bytes = recvfrom(receivefd, buff, 512, MSG_DONTWAIT, (struct sockaddr *)&clientaddr, &client_size);
+        if (bytes == -1)
+        {
+            if (errno == EAGAIN || errno == EWOULDBLOCK)
+            {
+                // No data is currently available
+                continue;
+            }
+            else
+            {
+                perror("recvfrom()");
+                exit(1);
+            }
+        }
+        else
+        {
+            if ((strncmp(buff, "DREG", 4) == 0))
+            {
+
+                pthread_mutex_lock(&globalMutex);
+                ifDregReceived = 1; // Set dreg received flag to 1
+                pthread_mutex_unlock(&globalMutex);
+                
+                printf("Received DREG packet from firealarm\n");
+                
+
+                break;
+            }
+            else if (strncmp(buff, "TEMP", 4) == 0)
+            {
+                printf("Received Temp datagram\n");
+                // Handle receiving temp datagram
+                // struct datagram_format *receivedDatagram = (struct datagram_format *)buff;
+                // if (receivedDatagram == NULL)
+                // {
+                //     fprintf(stderr, "Pointer points to NULL");
+                //     exit(1);
+                // }
+                // else if (numTemp == 0)
+                // {
+                //     // Create tempSensor
+                //     struct TempData tempSensor;
+                //     tempSensor.id = receivedDatagram->id;
+                //     tempSensor.temp = receivedDatagram->temperature;
+                //     tempSensor.timestamp = receivedDatagram->timestamp;
+
+                //     // Add to the list
+                //     pthread_mutex_lock(&tempMutex);
+                //     TempList[numTemp] = tempSensor;
+                //     numTemp++;
+                //     pthread_mutex_unlock(&tempMutex);
+
+                //     printf("Total temp sensor %d\n", numTemp);
+                // }
+                // else if (numTemp > 0)
+                // {
+                //     printf("In else if\n");
+                //     for (int i = 0; i < numTemp; i++)
+                //     {
+                //         if (receivedDatagram->id == TempList[i].id) // Check if the tempsensor is added to the list
+                //         {
+                //             printf("Im in the comparison");
+                //             struct timeval current_time;
+                //             gettimeofday(&current_time, NULL); // Get the current time
+
+                //             int time_elapsed = (current_time.tv_sec - receivedDatagram[i].timestamp.tv_sec) * 1000000 +
+                //                                (current_time.tv_usec - receivedDatagram[i].timestamp.tv_usec);
+
+                //             int time_elapsed_since_update = (current_time.tv_sec - TempList[i].timestamp.tv_sec) * 1000000 +
+                //                                             (current_time.tv_usec - TempList[i].timestamp.tv_usec);
+
+                //             if (time_elapsed > time_elapsed_since_update) // Check if the received Datagram is the most recent temperature update
+                //             {
+                //                 pthread_mutex_lock(&tempMutex);
+                //                 TempList[i].timestamp = receivedDatagram->timestamp;
+                //                 TempList[i].temp = receivedDatagram->temperature;
+                //                 pthread_mutex_unlock(&tempMutex);
+                //             }
+                //             else
+                //             {
+                //                 continue;
+                //             }
+                //         }
+                //         else
+                //         {
+                //             // Else add to list
+
+                //             // Create tempSensor
+                //             struct TempData tempSensor;
+                //             tempSensor.id = receivedDatagram->id;
+                //             tempSensor.temp = receivedDatagram->temperature;
+                //             tempSensor.timestamp = receivedDatagram->timestamp;
+
+                //             // Add to the list
+                //             pthread_mutex_lock(&tempMutex);
+                //             TempList[numTemp] = tempSensor;
+                //             numTemp++;
+                //             pthread_mutex_unlock(&tempMutex);
+                //             printf("Total temp sensor %d\n", numTemp);
+                //         }
+                //     }
+                // }
+            }
+            else
+            {
+
+                pthread_mutex_lock(&globalMutex);
+                ifDregReceived = 0; // Set dreg received flag to 0
+                pthread_mutex_unlock(&globalMutex);
+
+                printf("Incorrect format datagram received \n");
+            }
+        }
+    }
+
+    return NULL;
+}
+
+// <summary>
+// Function to handle user input
+// </summary>
+void *handleManualAccess(void *arg)
+{
+    char input[256];
+
+    while (1)
+    {
+        int doorID;
+
+        printf("Enter a command: \n");
+        fgets(input, sizeof(input), stdin);
+
+        // Parse the command and perform actions based on user input
+        if (strstr(input, "DOOR LIST") != NULL)
+        {
+            if (numDoor == 0)
+            {
+                printf("No initialised doors\n");
+                continue;
+            }
+            // Handle DOOR LIST command
+            // Print the list of doors
+            for (int i = 0; i < numDoor; i++)
+            {
+                if (DoorList[i].fail_safe == 'y')
+                {
+                    printf("DoorID:%d DoorAddr:%s DoorPort:%d DoorConfig:FAIL_SAFE\n", DoorList[i].id, inet_ntoa(DoorList[i].door_addr), ntohs(DoorList[i].door_port));
+                }
+                else
+                {
+                    printf("DoorID:%d DoorAddr:%s DoorPort:%d DoorConfig:FAIL_SECURE\n", DoorList[i].id, inet_ntoa(DoorList[i].door_addr), ntohs(DoorList[i].door_port));
+                }
+            }
+        }
+        else if (strstr(input, "DOOR OPEN") != NULL)
+        {
+            if (sscanf(input, "DOOR OPEN %d", &doorID) == 1)
+            {
+                // Handle DOOR OPEN command
+                DoorOpen(doorID);
+            }
+        }
+        else if (strstr(input, "DOOR CLOSE") != NULL)
+        {
+            if (sscanf(input, "DOOR CLOSE %d", &doorID) == 1)
+            {
+                // Handle DOOR OPEN command
+                DoorClose(doorID);
+            }
+        }
+        else if (strstr(input, "TEMPSENSOR LIST") != NULL)
+        {
+
+            // Handle TEMPSENSOR LIST command
+            // Print List of Temp Sensor
+            for (int i = 0; i < numTemp; i++)
+            {
+                printf("TempsensorID : %d Tempreading: %f\n", TempList[i].id, TempList[i].temp);
+            }
+        }
+        else if (strstr(input, "FIRE ALARM") != NULL)
+        {
+            // Handle FIRE ALARM command
+        }
+        else if (strstr(input, "SECURITY ALARM") != NULL)
+        {
+            // Handle SECURITY ALARM command
+        }
+        else if (strstr(input, "EXIT") != NULL)
+        {
+            // Handle EXIT command
+            break;
+        }
+        else
+        {
+            printf("Invalid command\n");
+        }
+    }
+    return NULL;
+}
 
 // <summary>
 // Handles card scan
 // </summary>
-int handleCardScan(int client_socket, char* string)
+int handleCardScan(int client_socket, char *string)
 {
 
     char scanned[17];
@@ -382,76 +623,12 @@ int handleCardScan(int client_socket, char* string)
             // Closes the connection
             close_connection(client_socket);
 
-            int doorfd; // Store fd of door
-            int doorIndex;
             // Send OPEN# to Door Controller
-            for (int i = 0; i < numDoor; i++) // Check for the Door ID
+            if (DoorOpen(doorControllerID) == 1) // Sends Open, Waits for OPENING, OPENED or ALREADY and close the connection
             {
-                if (DoorList[i].id == doorControllerID)
-                {
-                    char *msg = "OPEN#";
-                    // Sends message to Door Controller setting last param to zero doesnt close connection
-                    doorfd = send_message_to(msg, (int)DoorList[i].door_port, inet_ntoa(DoorList[i].door_addr), 0);
-                    doorIndex = i;
-                    break; // Can break out of loop
-                }
-                else
-                {
-                    continue;
-                }
-            }
-
-            // Receive the message send from the Door
-            ssize_t bytes = receiveMessage(doorfd, string, BUFFER_SIZE);
-            // printf("Received %s from door",string);
-
-            /* Check if msg received is OPENING */
-            if (strcmp(string, "OPENING#") == 0)
-            {
-                /* Wait till u receive OPENED# */
-                bytes = receiveMessage(doorfd, string, BUFFER_SIZE);
-                // printf("Received %s from door",string);
-
-                // Check if msg received is open
-                if (strcmp(string, "OPENED#") == 0)
-                {
-                    /* Close connection */
-                    close_connection(doorfd);
-                    /* Wait for door_open duration */
-                    usleep(doorOpenDuration);
-
-                    char *msg = "CLOSE#";
-                    /* Open connection again and send CLOSE# (leaves connection open)*/
-                    doorfd = send_message_to(msg, (int)DoorList[doorIndex].door_port, inet_ntoa(DoorList[doorIndex].door_addr), 0);
-                    // printf("door fd: %d\n", doorfd);
-
-                    /* Extra */
-                    // Receive response from Door
-                    bytes = receiveMessage(doorfd, string, BUFFER_SIZE);
-                    // printf("Received %s from door",string);
-
-                    if (strcmp(string, "CLOSING#") == 0)
-                    {
-                        // fprintf(stderr, "Got CLOSING#\n");
-                        bytes = receiveMessage(doorfd, string, BUFFER_SIZE);
-                        if (strcmp(string, "CLOSED#") == 0)
-                        {
-                            // fprintf(stderr, "Got CLOSED#\n");
-
-                            close_connection(doorfd);
-                        }
-                    }
-                }
-                else
-                {
-                    fprintf(stderr, "Did not receive OPENED# from Door");
-                    exit(1);
-                }
-            }
-            else
-            {
-                fprintf(stderr, "Did not receive OPENING# from door");
-                exit(1);
+                /* Wait for door_open duration */
+                usleep(doorOpenDuration);
+                DoorClose(doorControllerID);
             }
         }
         else
@@ -507,7 +684,6 @@ int sendDoorRegDatagram(void *args)
         exit(1);
     }
     socklen_t sendtoaddr_len = sizeof(sendtoaddr);
-    printf("%d\n",numDoor);
     for (int i = 0; i < numDoor; i++)
     {
         // mutex lock
@@ -518,17 +694,30 @@ int sendDoorRegDatagram(void *args)
             regDatagram.door_addr = DoorList[i].door_addr; // Copies value of door addr
             regDatagram.door_port = DoorList[i].door_port; // Copies value of door port
 
-            // Send door reg datagram to overseer
+            // Send door reg datagram to firealarm
             (void)sendto(sendfd, &regDatagram, (size_t)sizeof(struct door_reg_datagram), 0, (const struct sockaddr *)&sendtoaddr, sendtoaddr_len);
-            
-            // Check if dreg received 
+
+            for (;;)
+            {
+                usleep(datagramResendDelay);
+                // Check if dreg received
+                if (!(ifDregReceived))
+                {
+                    // Send door reg datagram to firealarm
+                    (void)sendto(sendfd, &regDatagram, (size_t)sizeof(struct door_reg_datagram), 0, (const struct sockaddr *)&sendtoaddr, sendtoaddr_len);
+                }
+                else
+                {
+                    break;
+                }
+            }
 
             // Update current door acknowledgement status to true
-            pthread_mutex_lock(&doorListMutex);
+            pthread_mutex_lock(&globalMutex);
             DoorList[i].acknowledged = true;
-            pthread_mutex_unlock(&doorListMutex);
+            pthread_mutex_unlock(&globalMutex);
 
-            printf("New acknowledgement %d\n", DoorList[i].acknowledged);
+            // printf("New acknowledgement %d\n", DoorList[i].acknowledged);
         }
         else
         {
@@ -635,7 +824,7 @@ int initializeDoorData(struct DoorData *door, const char *buffer, int ifFailSafe
     if (sscanf(buffer, "DOOR %s %s FAIL_SAFE#", doorID, door_full_addr) == 2)
     {
         door->id = atoi(doorID);
-        door->door_port = split_Address_Port(door_full_addr, door_addr);
+        door->door_port = htons(split_Address_Port(door_full_addr, door_addr));
 
         // Use inet_aton to convert the IP string to an in_addr structure
         if (inet_aton(door_addr, &door->door_addr) == 0)
@@ -667,34 +856,135 @@ int initializeDoorData(struct DoorData *door, const char *buffer, int ifFailSafe
     return 0; // Return 0 to indicate failure (input doesn't match the DOOR format)
 }
 
+//<summary>
+// Opens door with that id
+//</summary>
+int DoorOpen(int doorID)
+{
+    int doorfd;
+    char string[BUFFER_SIZE];
 
-            // for(;;) // Loop to check if overseer receives DREG datagram
-            // {
-            //     // Wait for datagram resend delay
-            //     usleep(datagramResendDelay);
+    // Send OPEN# to Door Controller
+    for (int i = 0; i < numDoor; i++) // Check for the Door ID
+    {
+        if (DoorList[i].id == doorID)
+        {
+            char *msg = "OPEN#";
+            // Sends message to Door Controller setting last param to zero doesnt close connection
+            doorfd = send_message_to(msg, ntohs(DoorList[i].door_port), inet_ntoa(DoorList[i].door_addr), 0);
+            break; // Can break out of loop
+        }
+        else
+        {
+            continue;
+        }
+    }
 
-            //     // Receive DREG datagram
-            //     ssize_t bytes = recvfrom(receivefd, buff, 512, 0, NULL, NULL);
-            //     if (bytes == -1)
-            //     {
-            //         perror("recvfrom()");
-            //         exit(1);
-            //     }
+    // Receive the message send from the Door
+    ssize_t bytes = receiveMessage(doorfd, string, BUFFER_SIZE);
+    string[bytes] = '\0';
+    if (bytes == -1)
+    {
+        perror("recv()");
+        exit(1);
+    }
 
-            //     if (!(strncmp(buff, "DREG", 4) == 0))
-            //     {
-            //         // Send door reg datagram to overseer
-            //         (void)sendto(sendfd, &regDatagram, (size_t)sizeof(struct door_reg_datagram), 0, (const struct sockaddr *)&sendtoaddr, sendtoaddr_len);
+    // printf("Received %s from door",string);
 
-            //     }
-            //     else if((strncmp(buff, "DREG", 4) == 0))
-            //     {
-            //         printf("Received successfully\n");
-            //         break;
-            //     }
-            //     else
-            //     {
-            //         printf("Looped receive DREG once\n");
-            //     }
-               
-            // }
+    /* Check if msg received is OPENING */
+    if (strcmp(string, "OPENING#") == 0)
+    {
+        /* Wait till u receive OPENED# */
+        bytes = receiveMessage(doorfd, string, BUFFER_SIZE);
+        string[bytes] = '\0';
+        if (bytes == -1)
+        {
+            perror("recv()");
+            exit(1);
+        }
+        // printf("Received %s from door",string);
+
+        // Check if msg received is open
+        if (strcmp(string, "OPENED#") == 0)
+        {
+            /* Close connection */
+            close_connection(doorfd);
+            return 1;
+        }
+    }
+    else if (strcmp(string, "ALREADY#") == 0)
+    {
+        close_connection(doorfd);
+        return 1;
+    }
+    else
+    {
+        fprintf(stderr, "Did not receive valid string in DoorOpen()\n");
+        exit(1);
+    }
+    return 0;
+}
+
+void DoorClose(int doorID)
+{
+    int doorfd;
+    char string[BUFFER_SIZE];
+
+    // Send CLOSE# to Door Controller
+    for (int i = 0; i < numDoor; i++) // Check for the Door ID
+    {
+        if (DoorList[i].id == doorID)
+        {
+            char *msg = "CLOSE#";
+            // Sends message to Door Controller setting last param to zero doesnt close connection
+            doorfd = send_message_to(msg, ntohs(DoorList[i].door_port), inet_ntoa(DoorList[i].door_addr), 0);
+            break; // Can break out of loop
+        }
+        else
+        {
+            continue;
+        }
+    }
+
+    // Receive the message send from the Door
+    ssize_t bytes = receiveMessage(doorfd, string, BUFFER_SIZE);
+    string[bytes] = '\0';
+    if (bytes == -1)
+    {
+        perror("recv()");
+        exit(1);
+    }
+
+    // printf("Received %s from door",string);
+
+    /* Check if msg received is OPENING */
+    if (strcmp(string, "CLOSING#") == 0)
+    {
+        /* Wait till u receive OPENED# */
+        bytes = receiveMessage(doorfd, string, BUFFER_SIZE);
+        string[bytes] = '\0';
+        if (bytes == -1)
+        {
+            perror("recv()");
+            exit(1);
+        }
+        // printf("Received %s from door",string);
+
+        // Check if msg received is open
+        if (strcmp(string, "CLOSED#") == 0)
+        {
+            /* Close connection */
+            close_connection(doorfd);
+        }
+    }
+    else if (strcmp(string, "EMERGENCY_MODE#") == 0 || strcmp(string, "ALREADY#") == 0)
+    {
+        // close connection
+        close_connection(doorfd);
+    }
+    else
+    {
+        fprintf(stderr, "Did not receive valid string in DoorClose()\n");
+        exit(1);
+    }
+}

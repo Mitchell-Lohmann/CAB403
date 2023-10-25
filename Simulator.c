@@ -30,6 +30,7 @@ void init(char *scenarioName)
     char lineCompare[100];
     // int currentPort = 3000; // Starting port number
 
+
     /* Check to see if file opened */
     if (fhA == NULL)
     {
