@@ -38,13 +38,13 @@ int split_Address_Port(char *full_addr, char *addr)
         }
         else
         {
-            perror("Invalid input format of port number.\n");
+            fprintf(stderr,"Invalid input format of port number.\n");
             exit(1);
         }
     }
     else
     {
-        perror("Invalid input format of address.\n");
+        fprintf(stderr,"Invalid input format of port number.\n");
         exit(1);
     }
 }

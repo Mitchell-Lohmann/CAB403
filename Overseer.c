@@ -99,11 +99,12 @@ int main(int argc, char **argv)
 {
     printf("Overseer Launched at address %s\n", argv[1]);
     /* Check for error in input arguments */
-    // if(argc < 8)
-    // {
-    //     fprintf(stderr, "Missing command line arguments, {address:port} {door open duration (in microseconds)} {datagram resend delay (in microseconds)} {authorisation file} {connections file} {layout file} {shared memory path} {shared memory offset}");
-    //     exit(1);
-    // }
+    if(argc < 8)
+    {
+        fprintf(stderr, "Missing command line arguments, {address:port} {door open duration (in microseconds)} {datagram resend delay (in microseconds)} {authorisation file} {connections file} {layout file} {shared memory path} {shared memory offset}");
+        exit(1);
+    }
+
 
     /* Initialise input arguments */
 

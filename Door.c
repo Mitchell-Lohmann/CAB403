@@ -16,14 +16,6 @@
 
 /* Code is written to be complaint with saftey standards  MISRA-C and IEC 61508. */
 
-/* Door controller shared memory struct initialisation */
-typedef struct
-{
-    char status; /* 'O' for open, 'C' for closed, 'o' for opening, 'c' for closing */
-    pthread_mutex_t mutex;
-    pthread_cond_t cond_start;
-    pthread_cond_t cond_end;
-} shm_door;
 
 /* Function Definition */
 //<summary>
@@ -51,6 +43,7 @@ void change_door_status(shm_door *shared, char status_to_changeto)
     pthread_mutex_unlock(&shared->mutex);
 }
 
+
 int main(int argc, char **argv)
 {
     printf("Door Launched at address %s\n", argv[2]);
@@ -64,12 +57,14 @@ int main(int argc, char **argv)
     /* Initialise input arguments */
     int id = atoi(argv[1]);
     char door_addr[10];
-    int door_port = split_Address_Port(argv[2], door_addr);
+    char *door_full_addr = argv[2];
+    int door_port = split_Address_Port(door_full_addr, door_addr);
     char *initial_config = argv[3];
     const char *shm_path = argv[4];
     int shm_offset = atoi(argv[5]);
     char overseer_addr[10];
-    int overseer_port = split_Address_Port(argv[6], overseer_addr);
+    char *overseer_full_addr = argv[6];
+    int overseer_port = split_Address_Port(overseer_full_addr, overseer_addr);
 
     /* Initialisation */
     /* Send buffer, defined in common.h to be consitent across all elements. */

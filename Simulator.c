@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
@@ -20,15 +21,17 @@ int doorNum = 0;       // Initialise variables to keep count of initialised prog
 int tempsensorNum = 0; // Initialise variables to keep count of initialised programs
 int callpointNum = 0;  // Initialise variables to keep count of initialised programs
 int portNumber = 3000; // Initial Port Number
-// Initialises shared memory
-char *shm_path = "/shm";
+
+char *shm_path = "/shm"; // shm path of the shared memory
+pid_t pidList[102];      // List of process IDs
+int pidNum = 0;          // Initialise count of pids
 
 int overseerPort;
 int fireAlarmPort;
 int doorPort[20];
 int temPort[20];
 
-char overseerAddress[256];
+char overseerAddress[17] = "127.0.0.1:3000";
 
 pthread_mutex_t globalMutex;
 
@@ -54,9 +57,9 @@ void init(char *scenarioName)
     }
 
     // Variables to keep track of how many components initialised
-    int overseerCount = 1; 
-    //int doorCount = 1;
-    //int cardreaderCount = 1;
+    int overseerCount = 0;
+    int doorCount = 1;
+    // int cardreaderCount = 0;
     /* Check each line for "INIT, if found find the process and execl() it"*/
     while (fgets(lineA, sizeof(lineA), fhA) != NULL)
     {
@@ -81,8 +84,10 @@ void init(char *scenarioName)
             {
                 if (strcmp(token, "overseer") == 0)
                 {
+                    pid_t pid = getpid();    // Get process number of current process
+                    pidList[pidNum++] = pid; // Add process number to the list
 
-                    ssize_t offset = overseerCount * sizeof(shm_overseer); // Calculates the offset for overseer
+                    ssize_t offset = overseerCount * offsetof(sharedMemory, overseer); // Calculates the offset for overseer in shared memory
 
                     char shm_offset[256]; // char buffer for storing the offset
 
@@ -97,116 +102,97 @@ void init(char *scenarioName)
                         exit(1);
                     }
 
-                    snprintf(overseerAddress, 256, "%s:%d", serverAddress, overseerPort);
+                    // snprintf(overseerAddress, 17, "%s:%d", serverAddress, overseerPort);
 
-                    execl("overseer", "./overseer", overseerAddress, door_open_duration, datagram_resend_delay, authorisation_file, connection_file, layout_file, shm_path, shm_offset, NULL);
+                    char *args[] = {"./overseer", overseerAddress, door_open_duration, datagram_resend_delay, authorisation_file, connection_file, layout_file, shm_path, shm_offset, NULL};
 
-                    perror("execl");
+                    // Launches overseer in the parent
+                    execv("overseer", args);
+
+                    perror("execv");
                 }
-
             }
-            if (child_pid == 0) // Child process
+            else if (child_pid == 0) // Child process
             {
-                return;
-                // if (!strcmp(token, "door"))
-                // {
-                //     // printf("door found in line %s\n", lineA);
-                //     /* Check that sscanf is successful */
-                //     if (sscanf(lineA, "INIT %s %s %s %s", argument1, argument2, argument3, argument4) != 4)
-                //     {
-                //         perror("sscanf failed");
-                //         exit(1);
-                //     }
+                usleep(250000); // Child sleeps for 250,000 microseconds, which is 250 milliseconds
 
-                //     snprintf(argumentAddressPort, 128, "%s:%d", serverAddress, serverPort);
+                if (!strcmp(token, "door"))
+                {
 
-                //     strcpy(argument0, "./door");
+                    /* Create child process */
+                    int pid = fork();
 
-                //     execl(argument0, argument1, argument2, argumentAddressPort, argument3, "/shm", argument4, "127.0.0.1:3000", NULL);
-                //     perror("execl");
+                    /* Confirm successful creation of child process */
+                    if (pid == -1)
+                    {
+                        perror("Fork failed");
+                        return;
+                    }
+                    else if (pid == 0) // Child process becomes door
+                    {
 
-                //     //
-                // }
-                // else if (!strcmp(token, "cardreader"))
-                // {
-                //     // printf("cardreader found in line %s\n", lineA);
-                // }
-                // else if (!strcmp(token, "firealarm"))
-                // {
-                //     // printf("firealarm found in line %s\n", lineA);
-                // }
-                // else if (!strcmp(token, "callpoint"))
-                // {
-                //     // printf("callpoint found in line %s\n", lineA);
-                // }
-                // else if (!strcmp(token, "tempsensor"))
-                // {
-                //     // printf("tempsensor found in line %s\n", lineA);
-                // }
-                // else if (!strcmp(token, "destselect"))
-                // {
-                //     // printf("destselect found in line %s\n", lineA);
-                // }
-                // else if (!strcmp(token, "camera"))
-                // {
-                //     // printf("camera found in line %s\n", lineA);
-                // }
+                        pid_t pid = getpid();    // Get process number of current process
+                        pidList[pidNum++] = pid; // Add process number to the list
+
+                        ssize_t offset = doorCount * offsetof(sharedMemory, doors);
+
+                        char shm_offset[256]; // char buffer for storing the offset
+
+                        snprintf(shm_offset, sizeof(shm_offset), "%zd", offset); // Convert offset to string
+
+                        char id[64], config[64], doorOpenDelay[64], doorAddress[17];
+
+                        /* Check that sscanf is successful */
+                        if (sscanf(lineA, "INIT door %s %s %s", id, config, doorOpenDelay) != 3)
+                        {
+                            perror("sscanf failed");
+                            exit(1);
+                        }
+
+                        snprintf(doorAddress, 17, "%s:%d", serverAddress, doorPort[doorCount]);
+
+                        doorCount++;
+
+                        // printf("%s %s %s %s %s %s\n", id, doorAddress, config, shm_path, shm_offset, overseerAddress);
+
+                        execl("door", "./door", id, doorAddress, config, shm_path, shm_offset, overseerAddress, NULL);
+                        perror("execl");
+                    }
+                    else
+                    {
+                        continue; // Parent continues as simulator
+                    }
+                }
+                else if (!strcmp(token, "cardreader"))
+                {
+                    // printf("cardreader found in line %s\n", lineA);
+                }
+                else if (!strcmp(token, "firealarm"))
+                {
+                    // printf("firealarm found in line %s\n", lineA);
+                }
+                else if (!strcmp(token, "callpoint"))
+                {
+                    // printf("callpoint found in line %s\n", lineA);
+                }
+                else if (!strcmp(token, "tempsensor"))
+                {
+                    // printf("tempsensor found in line %s\n", lineA);
+                }
+                else if (!strcmp(token, "destselect"))
+                {
+                    // printf("destselect found in line %s\n", lineA);
+                }
+                else if (!strcmp(token, "camera"))
+                {
+                    // printf("camera found in line %s\n", lineA);
+                }
             }
         }
         else
         {
             break; // All innit lines over
         }
-    }
-}
-
-void initOverseer(char *scenarioName, char serverAddress[16], int serverPort)
-{
-    /* Create child process */
-    pid_t child_pid = fork();
-
-    /* Parent process to become overseer */
-    if (child_pid > 0)
-    {
-        FILE *fhA = fopen(scenarioName, "r");
-        char lineA[100]; // Assuming a line won't exceed 100 characters
-
-        /* Check to see if file opened */
-        if (fhA == NULL)
-        {
-            perror("Error opening scenario file");
-            return;
-        }
-
-        fgets(lineA, sizeof(lineA), fhA);
-
-        char argumentAddressPort[64], argument0[64], argument1[64], argument2[64], argument3[64], argument4[64], argument5[64], argument6[64];
-
-        /* Check that sscanf is successful */
-        if (sscanf(lineA, "INIT overseer %s %s %s %s %s", argument2, argument3, argument4, argument5, argument6) != 5)
-        {
-            perror("sscanf failed");
-            exit(1);
-        }
-
-        snprintf(argumentAddressPort, 128, "%s:%d", serverAddress, serverPort);
-
-        execl("./overseer", "overseer", argumentAddressPort, argument2, argument3, argument4, argument5, argument6, NULL);
-        perror("execl");
-    }
-
-    /* Child process to continue as simulator */
-    if (child_pid == 0)
-    {
-        return;
-        printf("Child launched at ID %d", child_pid);
-    }
-
-    /* Confirm successful creation of child process */
-    if (child_pid == -1)
-    {
-        perror("Fork failed");
-        exit(1);
     }
 }
 
@@ -314,7 +300,7 @@ void initSharedStructs(char *scenarioName, sharedMemory *memory)
             if (strcmp(token, "overseer") == 0)
             {
                 pthread_mutex_init(&memory->overseer.mutex, &mattr); // Initialise the mutex in shared memory
-                pthread_cond_init(&memory->overseer.cond, &cattr);  // Initialise the condvar in shared memory
+                pthread_cond_init(&memory->overseer.cond, &cattr);   // Initialise the condvar in shared memory
 
                 pthread_mutex_lock(&memory->overseer.mutex);   // Lock the mutex
                 memory->overseer.security_alarm = '-';         // Set security alarm to '-'
