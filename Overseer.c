@@ -18,13 +18,6 @@
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
-/* Overseer shared memory structure */
-typedef struct
-{
-    char security_alarm; // '-' if inactive, 'A' if active
-    pthread_mutex_t mutex;
-    pthread_cond_t cond;
-} shm_overseer;
 
 struct TempData
 {

@@ -14,26 +14,6 @@
 #include <fcntl.h>
 #include "common.h"
 
-// 1023 so can add null term if req
-#define BUFFER_SIZE 1023
-
-/* Card reader shared-memory struct initialisation */
-typedef struct
-{
-    char scanned[16];
-    pthread_mutex_t mutex;
-    pthread_cond_t scanned_cond;
-
-    char response; // 'Y' or 'N' (or '\0' at first)
-    pthread_cond_t response_cond;
-} shm_cardreader;
-
-/*Function Definitions*/
-
-void send_message_to_overseer(const char *buf, const int overseer_port, const char *overseer_addr);
-
-int connect_to(int overseer_port, const char *overseer_addr);
-
 
 
 /* Start Main */
@@ -43,14 +23,14 @@ int main(int argc, char **argv)
      /* Check for error in input arguments */
     if(argc < 6)
     {
-        fprintf(stderr, "Missing command line arguments, {id} {wait time (in microseconds)} {shared memory path} {shared memory offset} {overseer address:port}");
+        fprintf(stderr, "Missing command line arguments, {id} {wait time (in microseconds)} {shared memory path} {shared memory offset} {overseer address:port}\n");
         exit(1);
     }
 
     
     /* Initialise input arguments */
     int id = atoi(argv[1]);
-    int waittime = atoi(argv[2]);
+    //int waittime = atoi(argv[2]);
     const char *shm_path = argv[3];
     int shm_offset = atoi(argv[4]);
     char *full_addr = argv[5];
@@ -83,19 +63,6 @@ int main(int argc, char **argv)
 
     }
 
-    /* Initialisation */
-
-    /* Send buffer */
-    char buff[BUFFER_SIZE];
-
-    /* Write msg into buf */
-    sprintf(buff, "CARDREADER {%d} HELLO#\n", id);
-    
-    /* Send message to overseer */
-    send_message_to_overseer(buff, overseer_port, overseer_addr);
-    
-    // printf("Send this msg to overseer %s \n", buff);
-
     /* Open share memory segment */
     int shm_fd = shm_open(shm_path, O_RDWR, 0666); // Creating for testing purposes
     
@@ -121,6 +88,20 @@ int main(int argc, char **argv)
 
     /* shared is used to access the shared memory */
     shm_cardreader *shared = (shm_cardreader *)(shm + shm_offset);
+    
+    /* Initialisation */
+
+    /* Send buffer */
+    char buff[BUFFER_SIZE];
+
+    /* Write msg into buf */
+    sprintf(buff, "CARDREADER {%d} HELLO#\n", id);
+    
+    /* Send message to overseer */
+    send_message_to(buff, overseer_port, overseer_addr, 1);
+    
+    // printf("Send this msg to overseer %s \n", buff);
+
 
     /* Normal Operation for cardreader */
 
@@ -137,7 +118,7 @@ int main(int argc, char **argv)
             sprintf(buff, "CARDREADER %d SCANNED %s#", id , buf);
 
             /* Connects to overseer and sends the message in the buffer*/
-            send_message_to_overseer(buff, overseer_port, overseer_addr);
+            send_message_to(buff, overseer_port, overseer_addr, 1);
 
             /* Need to implement overseer here, has been skipped in example video. */
             shared->response = 'Y';

@@ -226,7 +226,8 @@ int main(int argc, char **argv)
         struct datagram_format receivedDatagram;
         int bytes_received = recvfrom(recvsockfd, &receivedDatagram, sizeof(receivedDatagram), MSG_DONTWAIT, (struct sockaddr *)&clientaddr, &client_size);
         if (bytes_received == -1) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK)
+            {
                 // No data is currently available
                 continue;
             } else {
