@@ -26,6 +26,13 @@ typedef struct
     pthread_cond_t cond;
 } shm_overseer;
 
+struct TempData
+{
+    struct timeval timestamp;
+    float temperature;
+    uint16_t id;
+};
+
 /* Struct for storing Door data */
 struct DoorData
 {
@@ -34,14 +41,6 @@ struct DoorData
     in_port_t door_port;
     char fail_safe; // y if yes (fail_safe) n is no (fail_secure)
     bool acknowledged;
-};
-
-/*Struct for storing Temp sensor data */
-struct TempData
-{
-    float temp;
-    int id;
-    struct timeval timestamp;
 };
 
 struct door_reg_datagram
@@ -100,6 +99,8 @@ int initializeDoorData(struct DoorData *door, const char *buffer, int ifFailSafe
 int DoorOpen(int doorID);
 
 void DoorClose(int doorID);
+
+void handleTEMPDatagram(struct datagram_format *receivedDatagram);
 
 int main(int argc, char **argv)
 {
@@ -295,7 +296,6 @@ void *handleTCP(void *p_tcp_socket)
         else if (sscanf(buffer, "FIREALARM %s HELLO#", firealarm_full_addr) == 1)
         {
             // handle Fire alarm initialisation
-            printf("Fire alarm innit \n");
             firealarm_port = split_Address_Port(firealarm_full_addr, firealarm_addr);
 
             // Sends door reg datagram to fire alarm
@@ -393,7 +393,7 @@ void *handleUDP(void *p_recvsockfd)
 
     int receivefd = *(int *)p_recvsockfd;
     free(p_recvsockfd); // We dont need it anymore
-    struct sockaddr_in  clientaddr;
+    struct sockaddr_in clientaddr;
     socklen_t client_size = sizeof(clientaddr);
 
     for (;;)
@@ -420,86 +420,23 @@ void *handleUDP(void *p_recvsockfd)
                 pthread_mutex_lock(&globalMutex);
                 ifDregReceived = 1; // Set dreg received flag to 1
                 pthread_mutex_unlock(&globalMutex);
-                
-                printf("Received DREG packet from firealarm\n");
-                
 
-                break;
+                // printf("Received DREG packet from firealarm\n");
+
+                continue;
             }
             else if (strncmp(buff, "TEMP", 4) == 0)
             {
-                printf("Received Temp datagram\n");
+                // printf("Received Temp datagram\n");
+
                 // Handle receiving temp datagram
-                // struct datagram_format *receivedDatagram = (struct datagram_format *)buff;
-                // if (receivedDatagram == NULL)
-                // {
-                //     fprintf(stderr, "Pointer points to NULL");
-                //     exit(1);
-                // }
-                // else if (numTemp == 0)
-                // {
-                //     // Create tempSensor
-                //     struct TempData tempSensor;
-                //     tempSensor.id = receivedDatagram->id;
-                //     tempSensor.temp = receivedDatagram->temperature;
-                //     tempSensor.timestamp = receivedDatagram->timestamp;
-
-                //     // Add to the list
-                //     pthread_mutex_lock(&tempMutex);
-                //     TempList[numTemp] = tempSensor;
-                //     numTemp++;
-                //     pthread_mutex_unlock(&tempMutex);
-
-                //     printf("Total temp sensor %d\n", numTemp);
-                // }
-                // else if (numTemp > 0)
-                // {
-                //     printf("In else if\n");
-                //     for (int i = 0; i < numTemp; i++)
-                //     {
-                //         if (receivedDatagram->id == TempList[i].id) // Check if the tempsensor is added to the list
-                //         {
-                //             printf("Im in the comparison");
-                //             struct timeval current_time;
-                //             gettimeofday(&current_time, NULL); // Get the current time
-
-                //             int time_elapsed = (current_time.tv_sec - receivedDatagram[i].timestamp.tv_sec) * 1000000 +
-                //                                (current_time.tv_usec - receivedDatagram[i].timestamp.tv_usec);
-
-                //             int time_elapsed_since_update = (current_time.tv_sec - TempList[i].timestamp.tv_sec) * 1000000 +
-                //                                             (current_time.tv_usec - TempList[i].timestamp.tv_usec);
-
-                //             if (time_elapsed > time_elapsed_since_update) // Check if the received Datagram is the most recent temperature update
-                //             {
-                //                 pthread_mutex_lock(&tempMutex);
-                //                 TempList[i].timestamp = receivedDatagram->timestamp;
-                //                 TempList[i].temp = receivedDatagram->temperature;
-                //                 pthread_mutex_unlock(&tempMutex);
-                //             }
-                //             else
-                //             {
-                //                 continue;
-                //             }
-                //         }
-                //         else
-                //         {
-                //             // Else add to list
-
-                //             // Create tempSensor
-                //             struct TempData tempSensor;
-                //             tempSensor.id = receivedDatagram->id;
-                //             tempSensor.temp = receivedDatagram->temperature;
-                //             tempSensor.timestamp = receivedDatagram->timestamp;
-
-                //             // Add to the list
-                //             pthread_mutex_lock(&tempMutex);
-                //             TempList[numTemp] = tempSensor;
-                //             numTemp++;
-                //             pthread_mutex_unlock(&tempMutex);
-                //             printf("Total temp sensor %d\n", numTemp);
-                //         }
-                //     }
-                // }
+                struct datagram_format *receivedDatagram = (struct datagram_format *)buff;
+                if (receivedDatagram == NULL)
+                {
+                    fprintf(stderr, "Pointer points to NULL");
+                    exit(1);
+                }
+                handleTEMPDatagram(receivedDatagram); // Updates TempList
             }
             else
             {
@@ -575,7 +512,7 @@ void *handleManualAccess(void *arg)
             // Print List of Temp Sensor
             for (int i = 0; i < numTemp; i++)
             {
-                printf("TempsensorID : %d Tempreading: %f\n", TempList[i].id, TempList[i].temp);
+                printf("TempsensorID : %d Tempreading: %f\n", TempList[i].id, TempList[i].temperature);
             }
         }
         else if (strstr(input, "FIRE ALARM") != NULL)
@@ -986,5 +923,67 @@ void DoorClose(int doorID)
     {
         fprintf(stderr, "Did not receive valid string in DoorClose()\n");
         exit(1);
+    }
+}
+
+//<summary>
+// Updates Temp list when a Temp datagram is received
+//</summary>
+void handleTEMPDatagram(struct datagram_format *receivedDatagram)
+{
+    struct timeval current_time;
+    gettimeofday(&current_time, NULL); // Get the current time
+
+    int ifSensorInList = 0;
+    int index = -1;
+
+    for (int i = 0; i < numTemp; i++)
+    {
+        if (receivedDatagram->id == TempList[i].id)
+        {
+
+            ifSensorInList = 1;
+
+            int time_elapsed_received = (current_time.tv_sec - receivedDatagram->timestamp.tv_sec) * 1000000 +
+                                        (current_time.tv_usec - receivedDatagram->timestamp.tv_usec);
+
+            int time_elapsed_TempList = (current_time.tv_sec - TempList[i].timestamp.tv_sec) * 1000000 +
+                                        (current_time.tv_usec - TempList[i].timestamp.tv_usec);
+
+            if (time_elapsed_received < time_elapsed_TempList)
+            {
+                index = i;
+                break;
+            }
+        }
+    }
+
+    if (ifSensorInList)
+    {
+        if (index != -1)
+        {
+
+            pthread_mutex_lock(&tempMutex);
+            TempList[index].timestamp = receivedDatagram->timestamp;
+            TempList[index].temperature = receivedDatagram->temperature;
+            pthread_mutex_unlock(&tempMutex);
+        }
+    }
+    else
+    {
+        // Not in the list, add to list
+
+        // Create tempSensor
+        struct TempData tempSensor;
+        tempSensor.id = receivedDatagram->id;
+        tempSensor.temperature = receivedDatagram->temperature;
+        tempSensor.timestamp = receivedDatagram->timestamp;
+
+        // Add to the list
+        pthread_mutex_lock(&tempMutex);
+        TempList[numTemp] = tempSensor;
+        (numTemp)++;
+        pthread_mutex_unlock(&tempMutex);
+
     }
 }
