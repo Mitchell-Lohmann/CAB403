@@ -21,11 +21,11 @@ callpoint: Callpoint.c
 tempsensor: Tempsensor.c
 	gcc -o tempsensor Tempsensor.c common.c -Wall 
 
-elevator: Elevator.c
-	gcc -o elevator Elevator.c common.c -Wall 
 
-destselect: Destselect.c
-	gcc -o destselect Destselect.c common.c -Wall 
-
-camera: Camera.c
-	gcc -o camera Camera.c common.c -Wall 
+kill:
+	pkill -f overseer 
+	pkill -f firealarm
+	pkill -f cardreader
+	pkill -f door
+	pkill -f callpoint
+	pkill -f tempsensor

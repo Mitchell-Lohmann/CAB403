@@ -88,7 +88,7 @@ int main(int argc, char **argv)
 
     /* shared is used to access the shared memory */
     shm_cardreader *shared = (shm_cardreader *)(shm + shm_offset);
-    
+
     /* Initialisation */
 
     /* Send buffer */
@@ -114,6 +114,7 @@ int main(int argc, char **argv)
             char buf[17];
             memcpy(buf, shared->scanned, 16);
             buf[16] = '\0';
+
 
             sprintf(buff, "CARDREADER %d SCANNED %s#", id , buf);
 

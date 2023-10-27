@@ -46,7 +46,6 @@ void change_door_status(shm_door *shared, char status_to_changeto)
 
 int main(int argc, char **argv)
 {
-    printf("Door Launched at address %s\n", argv[2]);
     /* Check for error in input arguments */
     if (argc < 7)
     {
@@ -106,7 +105,7 @@ int main(int argc, char **argv)
     /* Assign a name to the socket created */
     if (bind(door_socket, (struct sockaddr *)&servaddr, addrlen) == -1)
     {
-        perror("bind()");
+        perror("bind()-Door");
         exit(1);
     }
 

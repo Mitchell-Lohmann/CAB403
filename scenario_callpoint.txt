@@ -1,0 +1,7 @@
+INIT overseer 100000 10000 authorisation.txt connections.txt layout.txt
+INIT firealarm 50 1 1000 0
+INIT door 101 FAIL_SAFE 10000
+INIT door 102 FAIL_SECURE 10000
+INIT callpoint 103 1000
+SCENARIO
+10000 CALLPOINT_TRIGGER 0
