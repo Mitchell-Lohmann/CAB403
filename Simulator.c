@@ -68,8 +68,6 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    // Get the start time
-    gettimeofday(&startTime, NULL);
 
     /* Initialise input arguments */
     char *scenarioName = argv[1];
@@ -88,7 +86,12 @@ int main(int argc, char **argv)
     // Runs all the init programs from the scenario file
     init(scenarioName, memory);
 
-    // sleep(1);
+    sleep(1);
+
+    // Start simulating events
+
+    // Get the start time for simulating events
+    gettimeofday(&startTime, NULL);
 
     // Run all the scenarios under the scenario file
     handleScenarioLines(scenarioName, memory);
@@ -204,7 +207,7 @@ void initSharedStructs(char *scenarioName, sharedMemory *memory)
                 // strcpy(memory->cardreader[cardReaderNum].scanned, "db4ed0a0bfbb00ac");
 
                 memset(memory->cardreader[cardReaderNum].scanned, '\0', sizeof(memory->cardreader[cardReaderNum].scanned)); // Set scanned array to '\0'
-                memory->cardreader->response = '\0'; // set response char to '\0'
+                memory->cardreader->response = '\0';                                                                        // set response char to '\0'
 
                 pthread_mutex_unlock(&memory->cardreader[cardReaderNum].mutex);
 
@@ -564,14 +567,39 @@ void handleScenarioLines(char *scenarioName, sharedMemory *memory)
                 else
                 {
                     pthread_mutex_lock(&memory->cardreader[cardReaderIndex].mutex);
-                    memcpy(memory->cardreader[cardReaderIndex].scanned, code, 15);
-                    printf("Scanned hash from card reader is %s for cardreader index %d\n",memory->cardreader[cardReaderIndex].scanned, cardReaderIndex);
+                    memcpy(memory->cardreader[cardReaderIndex].scanned, code, 16);
+                    // printf("Scanned hash from card reader is %s for cardreader index %d\n", memory->cardreader[cardReaderIndex].scanned, cardReaderIndex);
                     pthread_mutex_unlock(&memory->cardreader[cardReaderIndex].mutex);
-                    // pthread_cond_signal(&memory->cardreader[cardReaderIndex].scanned_cond);
+                    pthread_cond_signal(&memory->cardreader[cardReaderIndex].scanned_cond);
                 }
             }
             else if (strstr(lineA, "CALLPOINT_TRIGGER"))
             {
+                printf("CALLPOINT_TRIGGER line is %s\n", lineA);
+
+                char timestamp[64], num[64];
+                /* Check that sscanf is successful */
+                if (sscanf(lineA, "%s CALLPOINT_TRIGGER %s", timestamp, num) != 2)
+                {
+                    perror("sscanf failed");
+                    exit(1);
+                }
+                int timeStamp = atoi(timestamp);
+                int callpointIndex = atoi(num);
+                if (waitTillTimestamp(&startTime, timeStamp) == 0)
+                {
+                    fprintf(stderr, "waitTillTimestamp - Varibles defined inproperly\n");
+                    exit(1);
+                }
+                else
+                {
+                    pthread_mutex_lock(&memory->callpoint[callpointIndex].mutex);
+                    memory->callpoint[callpointIndex].status = '*';
+                    pthread_mutex_unlock(&memory->callpoint[callpointIndex].mutex);
+                    pthread_cond_signal(&memory->callpoint[callpointIndex].cond);
+                }
+
+
             }
             else if (strstr(lineA, "TEMP_CHANGE"))
             {

@@ -17,13 +17,6 @@
 /* Code is written to be complaint with saftey standards  MISRA-C and IEC 61508. */
 
 /* Call point unit shared memory struct initialisation */
-typedef struct
-{
-    char alarm; /* '-' if inactive, 'A' if active */
-    pthread_mutex_t mutex;
-    pthread_cond_t cond;
-} shm_firealarm;
-
 struct addr_entry {
   struct in_addr sensor_addr;
   in_port_t sensor_port;
@@ -299,6 +292,7 @@ int main(int argc, char **argv)
 
             // Convert the in_addr to a string
             char *addr_str = inet_ntoa(pointer->door_addr);
+
 
             // Send OPEN_EMERG# to newly registered door
             send_message_to(buf, pointer->door_port, addr_str, 1);
