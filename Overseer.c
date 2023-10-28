@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
 #include <stdint.h>
 #include <pthread.h>
 #include <sys/types.h>
@@ -18,7 +19,9 @@
 #include <sys/mman.h>
 #include "common.h"
 
-#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
+#define MAX_THREADS 100 // Max no: of TCP connection the server can handle
+
+volatile sig_atomic_t ifShutDown = 0; // Flag set when exit command entered in overseer or simulator kills process with SIG_TERM
 
 struct TempData
 {
@@ -37,7 +40,6 @@ struct DoorData
     bool acknowledged;
 };
 
-
 /* Global Variables */
 
 struct DoorData DoorList[50]; // Assuming no more than 50 doors will connect
@@ -49,7 +51,9 @@ int datagramResendDelay;      // Datagram resend delay
 char firealarm_addr[10];      // Stores fire alarms addr
 int firealarm_port;           // Stores fire alarms port number
 int ifDregReceived = 0;       // Flag to keep track if Dreg is received
-int ifShutDown = 0;           // Flag set when exit command entered in overseer
+int thread_count = 0;         // To keep track of thread count
+
+pthread_t thread_array[MAX_THREADS];
 shm_overseer *shared;
 pthread_mutex_t globalMutex;
 pthread_mutex_t tempMutex;
@@ -78,9 +82,13 @@ void DoorClose(int doorID);
 
 void handleTEMPDatagram(struct datagram_format *receivedDatagram);
 
+void sigterm_handler(int signum);
+
 int main(int argc, char **argv)
 {
-    printf("Overseer Launched at address %s\n", argv[1]);
+    // Register the SIGTERM handler
+    signal(SIGTERM, sigterm_handler);
+
     /* Check for error in input arguments */
     if (argc < 8)
     {
@@ -231,30 +239,51 @@ int main(int argc, char **argv)
     /* Infinite Loop */
     while (1)
     {
-        /* Generate a new socket for data transfer with the client */
-
-        client_socket = accept(server_socket, (struct sockaddr *)&clientaddr, (socklen_t *)&addr_size);
-        if (client_socket == -1)
+        if (thread_count < MAX_THREADS)
         {
-            perror("accept()");
-            exit(1);
+            /* Generate a new socket for data transfer with the client */
+
+            client_socket = accept(server_socket, (struct sockaddr *)&clientaddr, (socklen_t *)&addr_size);
+            if (client_socket == -1)
+            {
+                perror("accept()");
+                exit(1);
+            }
+
+            int *tcp_socket = malloc(sizeof(int));
+            *tcp_socket = client_socket;
+
+            /* Initialise pthreads */
+            pthread_t TCP_thread;
+
+            if (pthread_create(&TCP_thread, NULL, handleTCP, tcp_socket) != 0)
+            {
+                perror("pthread_create()");
+                exit(1);
+            }
+
+            // Add the thread to the thread array
+            thread_array[thread_count++] = TCP_thread;
         }
 
-        int *tcp_socket = malloc(sizeof(int));
-        *tcp_socket = client_socket;
-
-        /* Initialise pthreads */
-        pthread_t thread;
-
-        if (pthread_create(&thread, NULL, handleTCP, tcp_socket) != 0)
+        if (ifShutDown)
         {
-            perror("pthread_create()");
-            exit(1);
+            printf("Gracefully exiting overseer\n");
+            pthread_mutex_destroy(&globalMutex);
+            pthread_mutex_destroy(&tempMutex);
+            pthread_join(UDP, NULL);
+            pthread_join(manualAccess, NULL);
+            for (int i = 0; i < thread_count; i++) // wait for all TCP threads to join
+            {
+                pthread_join(thread_array[i], NULL);
+            }
+            return 0;
         }
-
+        
     } // end while
 
-    pthread_mutex_destroy(&globalMutex);
+
+    return 0;
 
 } // end main
 
@@ -450,6 +479,11 @@ void *handleUDP(void *p_recvsockfd)
                 printf("Incorrect format datagram received \n");
             }
         }
+        if (ifShutDown)
+        {
+            // Shut down flag is set
+            return NULL;
+        }
     }
 
     return NULL;
@@ -461,24 +495,23 @@ void *handleUDP(void *p_recvsockfd)
 void *handleManualAccess(void *arg)
 {
     char input[256];
+    pthread_t fire;
 
     while (1)
     {
         int doorID;
         int ifFireAlarm;
 
-        if (ifFireAlarm) // Checks flag 
+        if (ifFireAlarm) // Checks flag
         {
             // Create a thread to continuosly send FIRE datagram to fire alarm
-            pthread_t fire;
             ifFireAlarm = 0; // resets the flag
 
             if (pthread_create(&fire, NULL, sentCallpointDatagram, NULL) != 0)
             {
-            perror("pthread_create()");
-            exit(1);
+                perror("pthread_create()");
+                exit(1);
             }
-
         }
 
         printf("Enter a command: \n");
@@ -537,7 +570,6 @@ void *handleManualAccess(void *arg)
             // Handle FIRE ALARM command
             // sets flag if fire alarm
             ifFireAlarm = 1;
-            
         }
         else if (strstr(input, "SECURITY ALARM") != NULL)
         {
@@ -554,11 +586,17 @@ void *handleManualAccess(void *arg)
         {
             // Handle EXIT command
             ifShutDown = 1;
-            break;
         }
         else
         {
             printf("Invalid command\n");
+        }
+
+        if (ifShutDown)
+        {
+            pthread_join(fire, NULL); // Wait for thread fire to join
+            // Shut down flag is set
+            return NULL;
         }
     }
     return NULL;
@@ -601,9 +639,15 @@ void *sentCallpointDatagram(void *)
         /* Sleep for {resend delay} */
         (void)usleep(datagramResendDelay);
 
+        if (ifShutDown)
+        {
+            // Shut down flag is set
+            return NULL;
+        }
+
     } /* Loop ends */
 
-
+    return NULL;
 }
 
 // <summary>
@@ -1055,4 +1099,12 @@ void handleTEMPDatagram(struct datagram_format *receivedDatagram)
         (numTemp)++;
         pthread_mutex_unlock(&tempMutex);
     }
+}
+
+//<summary>
+// Set a flag to indicate shutdown
+//</summary>
+void sigterm_handler(int signum)
+{
+    ifShutDown = 1;
 }

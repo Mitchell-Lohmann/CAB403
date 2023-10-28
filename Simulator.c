@@ -99,7 +99,6 @@ int main(int argc, char **argv)
 
     if (ifshutdown)
     {
-        printf("Gracefully shutting down all programs\n");
         // Kill all process
         // Signal to send for termination (SIGTERM, signal 15)
         for (int i = 0; i < pidNum; i++)
@@ -110,6 +109,7 @@ int main(int argc, char **argv)
                 exit(1);
             }
         }
+        printf("Gracefully shutting down all programs\n");
     }
     else // Something went wrong forecekill every process
     {
@@ -123,6 +123,7 @@ int main(int argc, char **argv)
         }
     }
 
+    usleep(1000);
    
     return 0;
 }
