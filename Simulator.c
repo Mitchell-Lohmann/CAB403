@@ -47,7 +47,7 @@ char overseerAddress[17] = "127.0.0.1:3001";
 pthread_mutex_t globalMutex;
 
 /* Function Definitions */
-void initSharedMemory(char *shm_path, sharedMemory *memory);
+void initSharedMemory(char *shm_path, sharedMemory **memory);
 
 void initSharedStructs(char *scenarioName, sharedMemory *memory);
 
@@ -74,7 +74,7 @@ int main(int argc, char **argv)
     /* Initialise input arguments */
     char *scenarioName = argv[1];
 
-    sharedMemory memory;
+    sharedMemory *memory;
 
     // Remove any previous instance of the shared memory object, if it exists.
     shm_unlink(shm_path);
@@ -83,13 +83,15 @@ int main(int argc, char **argv)
     initSharedMemory(shm_path, &memory);
 
     // This functions innitialises the mutex and condvars and the default values in the struct
-    initSharedStructs(scenarioName, &memory);
+    initSharedStructs(scenarioName, memory);
 
     // Runs all the init programs from the scenario file
-    init(scenarioName, &memory);
+    init(scenarioName, memory);
+
+    // sleep(1);
 
     // Run all the scenarios under the scenario file
-    handleScenarioLines(scenarioName, &memory);
+    handleScenarioLines(scenarioName, memory);
 
     sleep(5);
 
@@ -119,7 +121,7 @@ int main(int argc, char **argv)
 //<summary>
 // Function that creates the shared memory
 //</summary>
-void initSharedMemory(char *shm_path, sharedMemory *memory)
+void initSharedMemory(char *shm_path, sharedMemory **memory)
 {
 
     /* Open share memory segment */
@@ -139,8 +141,8 @@ void initSharedMemory(char *shm_path, sharedMemory *memory)
         exit(1);
     }
 
-    memory = mmap(NULL, sizeof(sharedMemory), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
-    if (memory == MAP_FAILED)
+    *memory = mmap(NULL, sizeof(sharedMemory), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    if (*memory == MAP_FAILED)
     {
         perror("mmap()");
         exit(1);
@@ -228,7 +230,7 @@ void initSharedStructs(char *scenarioName, sharedMemory *memory)
                 pthread_cond_init(&memory->doors[doorNum].cond_start, &cattr); // Initialise the condvar in shared memory
 
                 pthread_mutex_lock(&memory->doors[doorNum].mutex);
-                memory->doors[doorNum].status = 'c';
+                memory->doors[doorNum].status = 'C';
                 pthread_mutex_unlock(&memory->doors[doorNum].mutex);
 
                 doorPort[doorNum++] = portNumber++; // Keeps track of port numbers of each door and increments global doorNum
@@ -445,7 +447,7 @@ void init(char *scenarioName, sharedMemory *memory)
                         exit(1);
                     }
 
-                    // printf("%s %s %s %s %s\n", id, waitTime, shm_path, shm_offset, overseerAddress);
+                    // printf("cardreaderID : %s cardReaderCount: %d %s %s %s %s\n", id, cardreaderCount,  waitTime, shm_path, shm_offset, overseerAddress);
 
                     execl("cardreader", "./cardreader", id, waitTime, shm_path, shm_offset, overseerAddress, NULL);
                     perror("execl");
@@ -552,6 +554,7 @@ void handleScenarioLines(char *scenarioName, sharedMemory *memory)
 
                 int timeStamp = atoi(timestamp);
                 int cardReaderIndex = atoi(num);
+                // printf("Card reader index is %d\n",cardReaderIndex);
 
                 if (waitTillTimestamp(&startTime, timeStamp) == 0)
                 {
@@ -561,8 +564,8 @@ void handleScenarioLines(char *scenarioName, sharedMemory *memory)
                 else
                 {
                     pthread_mutex_lock(&memory->cardreader[cardReaderIndex].mutex);
-                    memcpy(memory->cardreader[cardReaderIndex].scanned, code, 16);
-                    // printf("Scanned hash from card reader is %s\n",memory->cardreader[cardReaderIndex].scanned);
+                    memcpy(memory->cardreader[cardReaderIndex].scanned, code, 15);
+                    printf("Scanned hash from card reader is %s for cardreader index %d\n",memory->cardreader[cardReaderIndex].scanned, cardReaderIndex);
                     pthread_mutex_unlock(&memory->cardreader[cardReaderIndex].mutex);
                     // pthread_cond_signal(&memory->cardreader[cardReaderIndex].scanned_cond);
                 }
@@ -621,7 +624,7 @@ int waitTillTimestamp(struct timeval *startTime, int microseconds_to_wait)
 void *handleDoorScenario(void *arg)
 {
     struct door_data doorData = *(struct door_data *)arg;
-    printf("Im in the door thread\n");
+    // printf("Im in the door thread\n");
 
     // Lock the mutex to protect shared data
     pthread_mutex_lock(&doorData.door->mutex);
@@ -630,18 +633,18 @@ void *handleDoorScenario(void *arg)
         // Wait on cond_start
         pthread_cond_wait(&doorData.door->cond_start, &doorData.door->mutex);
 
-        printf("Cond start signaled\n");
+        // printf("Cond start signaled\n");
 
         // Upon waking up, check the status
         if (doorData.door->status == 'O' || doorData.door->status == 'C')
         {
-            printf("Door status is O or C\n");
+            // printf("Door status is O or C\n");
             // Wait on cond_start again
             pthread_cond_wait(&doorData.door->cond_start, &doorData.door->mutex);
         }
         else
         {
-            printf("Door status is not O or C\n");
+            // printf("Door status is not O or C\n");
 
             // Sleep for {door open/close time} microseconds
             usleep(doorData.door_open_duration);
@@ -650,12 +653,14 @@ void *handleDoorScenario(void *arg)
             if (doorData.door->status == 'o')
             {
                 doorData.door->status = 'O';
+                // printf("Door status changed to '0'\n");
             }
             else if (doorData.door->status == 'c')
             {
                 doorData.door->status = 'C';
+                // printf("Door status changed to 'C'\n");
             }
-            printf("Cond end signaled\n");
+            // printf("Cond end signaled\n");
             // Signal cond_end to notify others that the operation is complete
             pthread_cond_signal(&doorData.door->cond_end);
         }
