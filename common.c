@@ -90,21 +90,21 @@ int connect_to(int program_port, const char *program_addr)
 //<summary>
 // Function that helps send message to any program over TCP
 //</summary>
-int send_message_to(const char *buf, const int program_port, const char *program_addr, int ifClose)
+unsigned int send_message_to(const char *buf, const int program_port, const char *program_addr, int ifClose)
 {
     
     /* Connects to overseer before sending message */
     int fd = connect_to(program_port, program_addr);
     if (fd == -1)
     {
-        perror("connect_to");
+        fprintf(stderr, "connect_to");
         return -1;
     }
 
     /* Sends the message in the buffer*/
     if (send(fd, buf, strlen(buf), 0) == -1)
     {
-        perror("send()");
+        fprintf(stderr, "send()");
         return -1;
     }
 
@@ -113,9 +113,10 @@ int send_message_to(const char *buf, const int program_port, const char *program
         /* Close connection */
         if (close(fd) == -1)
         {
-            perror("close()");
+            fprintf(stderr, "close()");
             return -1;
         }
+        return 1;
     }
     else  // Usually for listening for a response
     {

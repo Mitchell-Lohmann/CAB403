@@ -6,6 +6,13 @@
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <arpa/inet.h>
+#include <unistd.h>
+#include <stdbool.h>
+#include <pthread.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/time.h>
+#include <fcntl.h>
 
 // common.h
 // Include guards to prevent multiple inclusions
@@ -72,11 +79,45 @@ typedef struct{
 
 }sharedMemory;
 
+/* Datagram to be send from callpoint and overseer to firealarm in case of fire*/
+typedef struct{
+    char header[4]; /* {'F', 'I', 'R', 'E'} */
+} callpoint_datagram;
+
+/* Datagram format */
+struct addr_entry {
+  struct in_addr sensor_addr;
+  in_port_t sensor_port;
+};
+
+/* Datagram send from tempsensors to other tempsensors, overseer*/
+struct datagram_format {
+  char header[4]; // {'T', 'E', 'M', 'P'}
+  struct timeval timestamp;
+  float temperature;
+  uint16_t id;
+  uint8_t address_count;
+  struct addr_entry address_list[50];
+};
+
+struct door_reg_datagram{
+    char header[4]; // {'D', 'O', 'O', 'R'}
+    struct in_addr door_addr;
+    in_port_t door_port;
+};
+
+struct door_confirm_datagram{
+    char header[4]; // {'D', 'R', 'E', 'G'}
+    struct in_addr door_addr;
+    in_port_t door_port;
+};
+
+
 
 
 int split_Address_Port(char *full_addr, char *addr);
 int connect_to(int overseer_port,const char *overseer_addr);
-int send_message_to(const char *buf, const int overseer_port, const char *overseer_addr, int ifClose);
+unsigned int send_message_to(const char *buf, const int overseer_port, const char *overseer_addr, int ifClose);
 void closeShutdown_connection(int client_fd);
 void close_connection(int client_fd);
 void send_message(int fd, char *message);

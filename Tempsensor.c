@@ -16,39 +16,17 @@
 #include <errno.h> // Include errno.h for error code definitions
 #include "common.h"
 
-/* Datagram format */
-struct addr_entry {
-  struct in_addr sensor_addr;
-  in_port_t sensor_port;
-};
-
-struct datagram_format {
-  char header[4]; // {'T', 'E', 'M', 'P'}
-  struct timeval timestamp;
-  float temperature;
-  uint16_t id;
-  uint8_t address_count;
-  struct addr_entry address_list[50];
-};
-
-
-/* Shm struct def */
-typedef struct {
-    float temperature;
-    pthread_mutex_t mutex;
-    pthread_cond_t cond;
-}shm_tempsensor;
-
-
 
 int main(int argc, char **argv)
 {
+
     /* Check for error in input arguments */
     if (argc < 8)
     {
         fprintf(stderr, "Missing command line arguments, {id} {address:port} {max condvar wait (microseconds)} {max update wait (microseconds)} {shared memory path} {shared memory offset} {receiver address:port}...");
         exit(1);
     }
+
 
     int id = atoi(argv[1]);
     char *full_addr = argv[2];
@@ -58,7 +36,6 @@ int main(int argc, char **argv)
     int max_update_wait = atoi(argv[4]);
     char *shm_path = argv[5];
     int shm_offset = atoi(argv[6]);
-    
     int receiverNum = argc - 7 ; // Total number of receiving tempsensors
     char receiver_addr[10]; // All receivers have same addr
 

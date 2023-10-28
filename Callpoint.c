@@ -17,20 +17,6 @@
 
 /* Code is written to be complaint with saftey standards  MISRA-C and IEC 61508. */
 
-/* Call point unit shared memory struct initialisation */
-typedef struct
-{
-    char status; /* '-' for inactive, '*' for active */
-    pthread_mutex_t mutex;
-    pthread_cond_t cond;
-} shm_callpoint;
-
-/* Datagram to be send */
-typedef struct
-{
-    char header[4]; /* {'F', 'I', 'R', 'E'} */
-} callpoint_datagram;
-
 int main(int argc, char **argv)
 {
     /* Check for error in input arguments */

@@ -16,34 +16,6 @@
 
 /* Code is written to be complaint with saftey standards  MISRA-C and IEC 61508. */
 
-/* Call point unit shared memory struct initialisation */
-struct addr_entry {
-  struct in_addr sensor_addr;
-  in_port_t sensor_port;
-};
-
-struct temp_datagram_format {
-  char header[4]; // {'T', 'E', 'M', 'P'}
-  struct timeval timestamp;
-  float temperature;
-  uint16_t id;
-  uint8_t address_count;
-  struct addr_entry address_list[50];
-};
-
-struct door_reg_datagram{
-    char header[4]; // {'D', 'O', 'O', 'R'}
-    struct in_addr door_addr;
-    in_port_t door_port;
-};
-
-struct door_confirm_datagram{
-    char header[4]; // {'D', 'R', 'E', 'G'}
-    struct in_addr door_addr;
-    in_port_t door_port;
-};
-
-
 // The 'min detections' value will be <= 50 (which means the detections list only needs to be 50 entries large)
 struct timeval detections[50];
 
@@ -54,7 +26,7 @@ struct door_reg_datagram fail_safe_doors[100];
 
 void removeOldTimestamps(struct timeval* detections, int* numDetections, int detection_period);
 
-int isTimestampOld(struct temp_datagram_format *datagram, int detection_period) ;
+int isTimestampOld(struct datagram_format *datagram, int detection_period) ;
 
 int isNewDoor(struct door_reg_datagram *new_door, struct door_reg_datagram fail_safe_doors[], int* num_doors);
 
@@ -194,7 +166,7 @@ int main(int argc, char **argv)
         else if ((strncmp(buff, "TEMP", 4) == 0) && !ifFireAlarmSet)
         {
             // Temp update datagram
-            struct temp_datagram_format *pointer = (struct temp_datagram_format *)buff;
+            struct datagram_format *pointer = (struct datagram_format *)buff;
             if (pointer == NULL)
             {
                 printf("Pointer points to NULL");
@@ -336,7 +308,7 @@ void removeOldTimestamps(struct timeval* detections, int* numDetections, int det
 }
 
 // Function to check the timestamp
-int isTimestampOld(struct temp_datagram_format *datagram, int detection_period) {
+int isTimestampOld(struct datagram_format *datagram, int detection_period) {
     struct timeval current_time;
     gettimeofday(&current_time, NULL); // Get the current time
 

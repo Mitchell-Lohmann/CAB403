@@ -14,10 +14,11 @@
 #include <sys/time.h>
 #include <time.h>
 #include <errno.h> // Include errno.h for error code definitions
+#include <fcntl.h>
+#include <sys/mman.h>
 #include "common.h"
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
-
 
 struct TempData
 {
@@ -36,28 +37,6 @@ struct DoorData
     bool acknowledged;
 };
 
-struct door_reg_datagram
-{
-    char header[4]; // {'D', 'O', 'O', 'R'}
-    struct in_addr door_addr;
-    in_port_t door_port;
-};
-
-struct addr_entry
-{
-    struct in_addr sensor_addr;
-    in_port_t sensor_port;
-};
-
-struct datagram_format
-{
-    char header[4]; // {'T', 'E', 'M', 'P'}
-    struct timeval timestamp;
-    float temperature;
-    uint16_t id;
-    uint8_t address_count;
-    struct addr_entry address_list[50];
-};
 
 /* Global Variables */
 
@@ -70,6 +49,8 @@ int datagramResendDelay;      // Datagram resend delay
 char firealarm_addr[10];      // Stores fire alarms addr
 int firealarm_port;           // Stores fire alarms port number
 int ifDregReceived = 0;       // Flag to keep track if Dreg is received
+int ifShutDown = 0;           // Flag set when exit command entered in overseer
+shm_overseer *shared;
 pthread_mutex_t globalMutex;
 pthread_mutex_t tempMutex;
 
@@ -80,6 +61,8 @@ void *handleTCP(void *p_client_socket);
 void *handleUDP(void *p_recvsockfd);
 
 void *handleManualAccess(void *arg);
+
+void *sentCallpointDatagram(void *);
 
 int sendDoorRegDatagram(void *args);
 
@@ -99,12 +82,11 @@ int main(int argc, char **argv)
 {
     printf("Overseer Launched at address %s\n", argv[1]);
     /* Check for error in input arguments */
-    if(argc < 8)
+    if (argc < 8)
     {
         fprintf(stderr, "Missing command line arguments, {address:port} {door open duration (in microseconds)} {datagram resend delay (in microseconds)} {authorisation file} {connections file} {layout file} {shared memory path} {shared memory offset}");
         exit(1);
     }
-
 
     /* Initialise input arguments */
 
@@ -116,9 +98,35 @@ int main(int argc, char **argv)
     // char *authorisation_file = argv[4];
     // char *connection_file = argv[5];
     // char *layout_file = argv[6];
-    // const char *shm_path = argv[7];
-    // int shm_offset = atoi(argv[8]);
+    const char *shm_path = argv[7];
+    int shm_offset = atoi(argv[8]);
 
+    /* Open share memory segment */
+    int shm_fd = shm_open(shm_path, O_RDWR, 0666); // Creating for testing purposes
+
+    if (shm_fd == -1)
+    {
+        perror("shm_open()");
+        exit(1);
+    }
+
+    /*fstat helps to get information of the shared memory like its size*/
+    struct stat shm_stat;
+    if (fstat(shm_fd, &shm_stat) == -1)
+    {
+        perror("fstat()");
+        exit(1);
+    }
+
+    char *shm = mmap(NULL, shm_stat.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    if (shm == MAP_FAILED)
+    {
+        perror("mmap()");
+        exit(1);
+    }
+
+    /* shared is used to access the shared memory */
+    shared = (shm_overseer *)(shm + shm_offset);
     /* TCP Initialise */
 
     /* Client file descriptor */
@@ -457,6 +465,21 @@ void *handleManualAccess(void *arg)
     while (1)
     {
         int doorID;
+        int ifFireAlarm;
+
+        if (ifFireAlarm) // Checks flag 
+        {
+            // Create a thread to continuosly send FIRE datagram to fire alarm
+            pthread_t fire;
+            ifFireAlarm = 0; // resets the flag
+
+            if (pthread_create(&fire, NULL, sentCallpointDatagram, NULL) != 0)
+            {
+            perror("pthread_create()");
+            exit(1);
+            }
+
+        }
 
         printf("Enter a command: \n");
         fgets(input, sizeof(input), stdin);
@@ -512,14 +535,25 @@ void *handleManualAccess(void *arg)
         else if (strstr(input, "FIRE ALARM") != NULL)
         {
             // Handle FIRE ALARM command
+            // sets flag if fire alarm
+            ifFireAlarm = 1;
+            
         }
         else if (strstr(input, "SECURITY ALARM") != NULL)
         {
             // Handle SECURITY ALARM command
+            // Security alarm has been triggered
+
+            pthread_mutex_lock(&shared->mutex);
+            shared->security_alarm = 'A';
+            pthread_mutex_unlock(&shared->mutex);
+            pthread_cond_signal(&shared->cond);
+            // Rest not for groups of 2
         }
         else if (strstr(input, "EXIT") != NULL)
         {
             // Handle EXIT command
+            ifShutDown = 1;
             break;
         }
         else
@@ -528,6 +562,48 @@ void *handleManualAccess(void *arg)
         }
     }
     return NULL;
+}
+
+//<summary>
+// Thread function that sends the FIRE datagram to fire alarm waits for resend delay and sends it again
+//</summary>
+void *sentCallpointDatagram(void *)
+{
+    /* Sets the datagram to be send */
+    callpoint_datagram datagram;
+    (void)memcpy(datagram.header, "FIRE", sizeof(datagram.header));
+
+    /* Create a socket for sending the datagram */
+    int sendfd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sendfd == -1)
+    {
+        perror("socket()");
+        exit(1);
+    }
+
+    /* Declare a data structure to specify the socket address (Address + Port)
+    memset is used to zero the struct out */
+    struct sockaddr_in destaddr;
+    socklen_t destaddr_len = sizeof(destaddr);
+    (void)memset(&destaddr, 0, sizeof(destaddr));
+    destaddr.sin_family = AF_INET;
+    destaddr.sin_port = htons((in_port_t)firealarm_port);
+    if (inet_pton(AF_INET, firealarm_addr, &destaddr.sin_addr) != 1)
+    {
+        fprintf(stderr, "inet_pton(%s)\n", firealarm_addr);
+        exit(1);
+    }
+
+    for (;;) // Keeps sending datagram
+    {
+        /* Sends UDP Datagram */
+        (void)sendto(sendfd, datagram.header, (size_t)strlen(datagram.header), 0, (const struct sockaddr *)&destaddr, destaddr_len);
+        /* Sleep for {resend delay} */
+        (void)usleep(datagramResendDelay);
+
+    } /* Loop ends */
+
+
 }
 
 // <summary>
@@ -978,6 +1054,5 @@ void handleTEMPDatagram(struct datagram_format *receivedDatagram)
         TempList[numTemp] = tempSensor;
         (numTemp)++;
         pthread_mutex_unlock(&tempMutex);
-
     }
 }

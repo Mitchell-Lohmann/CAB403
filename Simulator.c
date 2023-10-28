@@ -68,7 +68,6 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-
     /* Initialise input arguments */
     char *scenarioName = argv[1];
 
@@ -96,28 +95,35 @@ int main(int argc, char **argv)
     // Run all the scenarios under the scenario file
     handleScenarioLines(scenarioName, memory);
 
-    sleep(5);
+    sleep(1);
 
-    // Kill all process
-    // Signal to send for termination (SIGTERM, signal 15)
-    for (int i = 0; i < pidNum; i++)
+    if (ifshutdown)
     {
-        if (kill(pidList[i], SIGTERM) == 0)
+        printf("Gracefully shutting down all programs\n");
+        // Kill all process
+        // Signal to send for termination (SIGTERM, signal 15)
+        for (int i = 0; i < pidNum; i++)
         {
-            printf("Termination signal sent to process with PID %d.\n", pidList[i]);
+            if (kill(pidList[i], SIGTERM) != 0)
+            {
+                perror("kill");
+                exit(1);
+            }
         }
-        else
+    }
+    else // Something went wrong forecekill every process
+    {
+        for (int i = 0; i < pidNum; i++)
         {
-            perror("kill");
+            if (kill(pidList[i], SIGKILL) != 0)
+            {
+                perror("kill");
+                exit(1);
+            }
         }
     }
 
-    // int serverPort = 3000;
-    // char serverAddress[16] = "127.0.0.1";
-
-    // initOverseer(argv[1], serverAddress, serverPort);
-    // init(argv[1]);
-
+   
     return 0;
 }
 
@@ -302,6 +308,7 @@ void init(char *scenarioName, sharedMemory *memory)
     int doorCount = 0;
     int cardreaderCount = 0;
     int callpointCount = 0;
+    int tempSensorCount = 0;
     /* Check each line for "INIT, if found find the process and execl() it"*/
     while (fgets(lineA, sizeof(lineA), fhA) != NULL)
     {
@@ -396,7 +403,8 @@ void init(char *scenarioName, sharedMemory *memory)
                 }
                 else if (!strcmp(token, "tempsensor"))
                 {
-                    // printf("tempsensor found in line %s\n", lineA);
+                    tempSensorCount++;
+                    pidList[pidNum++] = child_pid;
                 }
             }
             else if (child_pid == 0) // Child process
@@ -467,7 +475,7 @@ void init(char *scenarioName, sharedMemory *memory)
                     char tempThreshold[64], minDetections[64], detectionPeriod[64], reserved[64], fireAlarmAddr[17];
 
                     /* Check that sscanf is successful */
-                    if (sscanf(lineA, "INIT firealarm %s %s %s %s", tempThreshold, tempThreshold, detectionPeriod, reserved) != 4)
+                    if (sscanf(lineA, "INIT firealarm %s %s %s %s", tempThreshold, minDetections, detectionPeriod, reserved) != 4)
                     {
                         perror("sscanf failed");
                         exit(1);
@@ -485,7 +493,7 @@ void init(char *scenarioName, sharedMemory *memory)
                 else if (!strcmp(token, "callpoint"))
                 {
 
-                    ssize_t offset = offsetof(sharedMemory, callpoint) + (cardreaderCount * sizeof(shm_callpoint));
+                    ssize_t offset = offsetof(sharedMemory, callpoint) + (callpointCount * sizeof(shm_callpoint));
 
                     char shm_offset[256]; // char buffer for storing the offset
 
@@ -509,7 +517,68 @@ void init(char *scenarioName, sharedMemory *memory)
                 }
                 else if (!strcmp(token, "tempsensor"))
                 {
-                    // printf("tempsensor found in line %s\n", lineA);
+                    // printf("%s\n",lineA);
+
+                    ssize_t offset = offsetof(sharedMemory, tempsensor) + (tempSensorCount * sizeof(shm_tempsensor));
+
+                    char shm_offset[256]; // char buffer for storing the offset
+
+                    snprintf(shm_offset, sizeof(shm_offset), "%zd", offset); // Convert offset to string
+
+                    char id[64], maxCondvarWait[64], maxUpdateWait[64], receiverList[64], thisTempsensorAddr[17];
+
+                    /* Check that sscanf is successful */
+                    if (sscanf(lineA, "INIT tempsensor %s %s %s %[^/n]", id, maxCondvarWait, maxUpdateWait, receiverList) != 4)
+                    {
+                        perror("sscanf failed");
+                        exit(1);
+                    }
+
+                    // {id} {address:port} {max condvar wait (microseconds)} {max update wait (microseconds)} {shared memory path} {shared memory offset} {receiver address:port}
+
+                    // Create {addrss:port} for this temp sensor
+
+                    snprintf(thisTempsensorAddr, 17, "%s:%d", serverAddress, temPort[tempSensorCount]);
+
+                    // printf("This temp sensors address is %s\n", thisTempsensorAddr);
+
+                    char *argv[] = {"./tempsensor", id, thisTempsensorAddr, maxCondvarWait, maxUpdateWait, shm_path, shm_offset, NULL, NULL, NULL, NULL, NULL};
+
+                    // Create {address:port} for the every receiver in the receivers list
+
+                    char *token, *saveptr;
+                    token = strtok_r(receiverList, " ", &saveptr); // Get the first token
+                    int receiverCount = 0;                         // Keeps track of how many receivers in the receiverList
+                    while (token != NULL)
+                    {
+                        // printf("Token: %s\n", token);
+                        if (token[0] == 'O') // Add overseer addr to argument list
+                        {
+                            // printf("%c is the token for token number %d\n",token[0], receiverCount);
+                            argv[receiverCount + 7] = overseerAddress;
+                        }
+                        else if (token[0] == 'F') // Add firealarm addr to argument list
+                        {
+                            // printf("%c is the token for token number %d\n",token[0], receiverCount);
+                            char fireAlarmAddr[17];
+                            snprintf(fireAlarmAddr, 17, "%s:%d", serverAddress, fireAlarmPort); // Create address for fire alarm
+
+                            argv[receiverCount + 7] = fireAlarmAddr;
+                        }
+                        else if (token[0] == 'S') // Token is either S1,S2,S3.....
+                        {
+                            // printf("%c is the token for token number %d\n",token[0], receiverCount);
+                            int tempsensorNo = atoi(token + 1);
+                            char receiverTempsensorAddr[17];
+                            snprintf(receiverTempsensorAddr, 17, "%s:%d", serverAddress, temPort[tempsensorNo]); // Grabs port from temPort list and make address of receiver
+
+                            argv[receiverCount + 7] = strdup(receiverTempsensorAddr);
+                        }
+                        token = strtok_r(NULL, " ", &saveptr); // Get the next token
+                        receiverCount++;                       // Increment receiver count
+                    }
+                    execv("tempsensor", argv);
+                    perror("execv");
                 }
             }
         }
@@ -575,7 +644,7 @@ void handleScenarioLines(char *scenarioName, sharedMemory *memory)
             }
             else if (strstr(lineA, "CALLPOINT_TRIGGER"))
             {
-                printf("CALLPOINT_TRIGGER line is %s\n", lineA);
+                // printf("CALLPOINT_TRIGGER line is %s\n", lineA);
 
                 char timestamp[64], num[64];
                 /* Check that sscanf is successful */
@@ -598,11 +667,31 @@ void handleScenarioLines(char *scenarioName, sharedMemory *memory)
                     pthread_mutex_unlock(&memory->callpoint[callpointIndex].mutex);
                     pthread_cond_signal(&memory->callpoint[callpointIndex].cond);
                 }
-
-
             }
             else if (strstr(lineA, "TEMP_CHANGE"))
             {
+                char timestamp[64], num[64], newTemp[64];
+                /* Check that sscanf is successful */
+                if (sscanf(lineA, "%s TEMP_CHANGE %s %s", timestamp, num, newTemp) != 3)
+                {
+                    perror("sscanf failed");
+                    exit(1);
+                }
+                int timeStamp = atoi(timestamp);
+                int tempSensorIndex = atoi(num);
+                float newTemperature = atoi(newTemp);
+                if (waitTillTimestamp(&startTime, timeStamp) == 0)
+                {
+                    fprintf(stderr, "waitTillTimestamp - Varibles defined inproperly\n");
+                    exit(1);
+                }
+                else
+                {
+                    pthread_mutex_lock(&memory->tempsensor[tempSensorIndex].mutex);
+                    memory->tempsensor[tempSensorIndex].temperature = newTemperature;
+                    pthread_mutex_unlock(&memory->tempsensor[tempSensorIndex].mutex);
+                    pthread_cond_signal(&memory->tempsensor[tempSensorIndex].cond);
+                }
             }
         }
         else if (strstr(lineA, "SCENARIO"))
@@ -610,6 +699,7 @@ void handleScenarioLines(char *scenarioName, sharedMemory *memory)
             foundScenario = 1;
         }
     }
+    ifshutdown = 1;
 
     fclose(fhA);
 }

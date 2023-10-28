@@ -105,10 +105,12 @@ int main(int argc, char **argv)
 
     /* Normal Operation for cardreader */
 
+    // Lock the mutex
     pthread_mutex_lock(&shared->mutex);
 
     for(;;)
-    {
+    {   
+        // Look at the scanned code
         if(shared->scanned[0] != '\0')
         {
             char buf[17];
@@ -119,10 +121,29 @@ int main(int argc, char **argv)
             sprintf(buff, "CARDREADER %d SCANNED %s#", id , buf);
 
             /* Connects to overseer and sends the message in the buffer*/
-            send_message_to(buff, overseer_port, overseer_addr, 1);
+            unsigned int overseerFd = send_message_to(buff, overseer_port, overseer_addr, 0);
+            if (overseerFd == -1)
+            {
+                fprintf(stderr, "send_message_to");
+                exit(1);
+            } 
 
-            /* Need to implement overseer here, has been skipped in example video. */
-            shared->response = 'Y';
+            /* Receive message from overseer */
+            receiveMessage(overseerFd, buff, sizeof(buff));
+            
+            if (strcmp(buff, "ALLOWED#") == 0)
+            {
+                shared->response = 'Y';
+            }
+            else if (strcmp(buff, "DENIED#") == 0)
+            {
+                shared->response = 'N';
+            }
+            else
+            {
+                printf("Cardreader received %s from overseer\n", buff);
+                shared->response = 'N';
+            }
             pthread_cond_signal (&shared->response_cond);
         }
         pthread_cond_wait(&shared->scanned_cond, &shared->mutex);
