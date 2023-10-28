@@ -14,14 +14,14 @@
 #include <sys/time.h>
 #include <fcntl.h>
 
-// common.h
-// Include guards to prevent multiple inclusions
+/* common.h */
+/* Include guards to prevent multiple inclusions */
 #ifndef COMMON_H
 #define COMMON_H
 
 #define BUFFER_SIZE 1024
 
-// Struct definitions 
+/* Struct definitions */
 typedef struct
 {
     char status; /* '-' for inactive, '*' for active */
@@ -35,7 +35,7 @@ typedef struct
     pthread_mutex_t mutex;
     pthread_cond_t scanned_cond;
 
-    char response; // 'Y' or 'N' (or '\0' at first)
+    char response; /* 'Y' or 'N' (or '\0' at first) */
     pthread_cond_t response_cond;
 } shm_cardreader;
 
@@ -56,7 +56,7 @@ typedef struct
 
 typedef struct
 {
-    char security_alarm; // '-' if inactive, 'A' if active
+    char security_alarm; /* '-' if inactive, 'A' if active */
     pthread_mutex_t mutex;
     pthread_cond_t cond;
 } shm_overseer;
@@ -112,9 +112,6 @@ struct door_confirm_datagram{
     in_port_t door_port;
 };
 
-
-
-
 int split_Address_Port(char *full_addr, char *addr);
 int connect_to(int overseer_port,const char *overseer_addr);
 unsigned int send_message_to(const char *buf, const int overseer_port, const char *overseer_addr, int ifClose);
@@ -122,7 +119,5 @@ void closeShutdown_connection(int client_fd);
 void close_connection(int client_fd);
 void send_message(int fd, char *message);
 ssize_t receiveMessage(int socket, char* buffer, size_t buffer_size);
-
-
 
 #endif //COMMON_H
