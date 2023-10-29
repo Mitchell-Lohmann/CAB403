@@ -16,6 +16,9 @@
 
 /* Code is written to be complaint with saftey standards  MISRA-C and IEC 61508. */
 
+/* Variables 'timeval' and 'door_reg_datagram' have been defined as global for the ease of access 
+the varibles from within in various functions. */
+
 /* The 'min detections' value will be <= 50 (which means the detections list only needs to be 50 entries large) */
 struct timeval detections[50];
 
