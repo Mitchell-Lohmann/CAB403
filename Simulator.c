@@ -101,6 +101,7 @@ int main(int argc, char **argv)
     handleScenarioLines(scenarioName, memory);
 
     sleep(1);
+    usleep(130000);
 
     if (ifshutdown)
     {
@@ -128,7 +129,6 @@ int main(int argc, char **argv)
         }
     }
 
-    usleep(1000);
 
     return 0;
 } /* End main */
