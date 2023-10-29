@@ -701,7 +701,7 @@ void handleScenarioLines(char *scenarioName, sharedMemory *memory)
                 }
                 int timeStamp = atoi(timestamp);
                 int tempSensorIndex = atoi(num);
-                float newTemperature = atoi(newTemp);
+                float newTemperature = atof(newTemp);
                 if (waitTillTimestamp(&startTime, timeStamp) == 0)
                 {
                     fprintf(stderr, "waitTillTimestamp - Varibles defined inproperly\n");
