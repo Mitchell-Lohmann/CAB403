@@ -57,13 +57,13 @@ int main(int argc, char **argv)
     int id = atoi(argv[1]);
     char door_addr[10];
     char *door_full_addr = argv[2];
-    int door_port = split_Address_Port(door_full_addr, door_addr);
+    int door_port = splitAddressPort(door_full_addr, door_addr);
     char *initial_config = argv[3];
     const char *shm_path = argv[4];
     int shm_offset = atoi(argv[5]);
     char overseer_addr[10];
     char *overseer_full_addr = argv[6];
-    int overseer_port = split_Address_Port(overseer_full_addr, overseer_addr);
+    int overseer_port = splitAddressPort(overseer_full_addr, overseer_addr);
 
     /* Initialisation */
     /* Send buffer, defined in common.h to be consitent across all elements. */
@@ -117,7 +117,7 @@ int main(int argc, char **argv)
     }
 
     /* Sends the initialisation message to overseer */
-    send_message_to(buff, overseer_port, overseer_addr, 1);
+    tcpSendMessageTo(buff, overseer_port, overseer_addr, 1);
 
     /* Open share memory segment */
     int shm_fd = shm_open(shm_path, O_RDWR, 0666); // Creating for testing purposes
@@ -180,15 +180,15 @@ int main(int argc, char **argv)
                 respose = "ALREADY#";
 
                 /* Sends message and closes the connection */
-                send_message(client_socket, respose);
-                close_connection(client_socket);
+                sendMessage(client_socket, respose);
+                closeConnection(client_socket);
             }
             else if (current_door_status == 'C')
             {
                 respose = "OPENING#";
 
                 /* Door currently closed sends "OPENING#" to overseer */
-                send_message(client_socket, respose);
+                sendMessage(client_socket, respose);
 
                 pthread_mutex_lock(&shared->mutex);
                 shared->status = 'o';
@@ -199,10 +199,10 @@ int main(int argc, char **argv)
                 respose = "OPENED#";
 
                 /* Door currently open sends "OPENED#" to overseer */
-                send_message(client_socket, respose);
+                sendMessage(client_socket, respose);
 
                 /* Close connection */
-                close_connection(client_socket);
+                closeConnection(client_socket);
 
                 /* Changes current door status */
                 current_door_status = get_door_status(shared);
@@ -219,17 +219,17 @@ int main(int argc, char **argv)
             {
                 /* Door already open sends "ALREADY#" to overeer */
                 respose = "ALREADY#";
-                send_message(client_socket, respose);
+                sendMessage(client_socket, respose);
 
                 /* Close connection */
-                close_connection(client_socket);
+                closeConnection(client_socket);
             }
             else if (current_door_status == 'O')
             {
                 respose = "CLOSING#";
 
                 /* Door currently opened sends "CLOSING#" to overseer */
-                send_message(client_socket, respose);
+                sendMessage(client_socket, respose);
 
                 pthread_mutex_lock(&shared->mutex);
                 shared->status = 'c';
@@ -240,10 +240,10 @@ int main(int argc, char **argv)
                 respose = "CLOSED#";
 
                 /* Door currently open sends "OPENED#" to overseer */
-                send_message(client_socket, respose);
+                sendMessage(client_socket, respose);
 
                 /* Close connection */
-                close_connection(client_socket);
+                closeConnection(client_socket);
 
                 /* Changes current door status */
                 current_door_status = get_door_status(shared);
@@ -268,7 +268,7 @@ int main(int argc, char **argv)
                 emergency_mode = 1;
 
                 /* Close connection */
-                close_connection(client_socket);
+                closeConnection(client_socket);
 
                 /* Changes current door status */
                 current_door_status = get_door_status(shared);
@@ -279,7 +279,7 @@ int main(int argc, char **argv)
                 emergency_mode = 1;
 
                 /* Close connection */
-                close_connection(client_socket);
+                closeConnection(client_socket);
 
                 /* Changes current door status */
                 current_door_status = get_door_status(shared);
@@ -295,10 +295,10 @@ int main(int argc, char **argv)
         {
             /* respond with EMERGENCY_MODE# */
             respose = "EMERGENCY_MODE#";
-            send_message(client_socket, respose);
+            sendMessage(client_socket, respose);
 
             /* Close connection */
-            close_connection(client_socket);
+            closeConnection(client_socket);
         }
         else
         {

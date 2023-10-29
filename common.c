@@ -18,7 +18,7 @@
 /// Function takes input of address from command line in form of 127.0.0.1:80 and splits
 /// into address 127.0.0.1 and port 80.
 /// </summary>
-int split_Address_Port(char *full_addr, char *addr)
+int splitAddressPort(char *full_addr, char *addr)
 {
     int port_number;
     /* Use strtok to split the input string using ':' as the delimiter */
@@ -26,7 +26,7 @@ int split_Address_Port(char *full_addr, char *addr)
     if (token != NULL)
     {
         /* token now contains "127.0.0.1" */
-        
+
         memcpy(addr, token, 9);
         addr[9] = '\0';
 
@@ -38,13 +38,13 @@ int split_Address_Port(char *full_addr, char *addr)
         }
         else
         {
-            fprintf(stderr,"Invalid input format of port number.\n");
+            fprintf(stderr, "Invalid input format of port number.\n");
             exit(1);
         }
     }
     else
     {
-        fprintf(stderr,"Invalid input format of port number.\n");
+        fprintf(stderr, "Invalid input format of port number.\n");
         exit(1);
     }
 }
@@ -52,7 +52,7 @@ int split_Address_Port(char *full_addr, char *addr)
 /// <summary>
 /// Function that helps establish connection with a program over TCP.
 /// </summary>
-int connect_to(int program_port, const char *program_addr)
+int tcpConnectTo(int program_port, const char *program_addr)
 {
     int fd;
 
@@ -90,11 +90,11 @@ int connect_to(int program_port, const char *program_addr)
 //<summary>
 // Function that helps send message to any program over TCP
 //</summary>
-unsigned int send_message_to(const char *buf, const int program_port, const char *program_addr, int ifClose)
+unsigned int tcpSendMessageTo(const char *buf, const int program_port, const char *program_addr, int ifClose)
 {
-    
-    /* Connects to overseer before sending message */
-    int fd = connect_to(program_port, program_addr);
+    tcpSendMessageTo
+        /* Connects to overseer before sending message */
+        int fd = tcp_Connect_To(program_port, program_addr);
     if (fd == -1)
     {
         fprintf(stderr, "connect_to");
@@ -118,7 +118,7 @@ unsigned int send_message_to(const char *buf, const int program_port, const char
         }
         return 1;
     }
-    else  // Usually for listening for a response
+    else // Usually for listening for a response
     {
         return fd; // returns file discriptor
     }
@@ -128,7 +128,7 @@ unsigned int send_message_to(const char *buf, const int program_port, const char
 //<summary>
 // Closes connection with the fd
 //</summary>
-void close_connection(int client_fd)
+void closeConnection(int client_fd)
 {
 
     /* close the socket used to receive data */
@@ -141,7 +141,7 @@ void close_connection(int client_fd)
 //<summary>
 // Shut down and closes connection with the fd
 //</summary>
-void closeShutdown_connection(int client_fd)
+void closeShutdownConnection(int client_fd)
 {
     /* Shut down socket - ends communication*/
     if (shutdown(client_fd, SHUT_RDWR) == -1)
@@ -160,7 +160,7 @@ void closeShutdown_connection(int client_fd)
 //<summary>
 // Send messeage to the fd
 //</summary>
-void send_message(int fd, char *message)
+void sendMessage(int fd, char *message)
 {
     if (send(fd, message, strlen(message), 0) == -1)
     {
@@ -172,9 +172,11 @@ void send_message(int fd, char *message)
 // <summary>
 // Function to receive a message from a fd
 // </summary>
-ssize_t receiveMessage(int socket, char* buffer, size_t buffer_size) {
+ssize_t receiveMessage(int socket, char *buffer, size_t buffer_size)
+{
     ssize_t bytes = recv(socket, buffer, buffer_size - 1, 0);
-    if (bytes == -1) {
+    if (bytes == -1)
+    {
         perror("recv()");
         exit(1);
     }

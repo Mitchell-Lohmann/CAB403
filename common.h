@@ -112,12 +112,12 @@ struct door_confirm_datagram{
     in_port_t door_port;
 };
 
-int split_Address_Port(char *full_addr, char *addr);
-int connect_to(int overseer_port,const char *overseer_addr);
-unsigned int send_message_to(const char *buf, const int overseer_port, const char *overseer_addr, int ifClose);
-void closeShutdown_connection(int client_fd);
-void close_connection(int client_fd);
-void send_message(int fd, char *message);
+int splitAddressPort(char *full_addr, char *addr);
+int tcpConnectTo(int overseer_port,const char *overseer_addr);
+unsigned int tcpSendMessageTo(const char *buf, const int overseer_port, const char *overseer_addr, int ifClose);
+void closeShutdownConnection(int client_fd);
+void closeConnection(int client_fd);
+void sendMessage(int fd, char *message);
 ssize_t receiveMessage(int socket, char* buffer, size_t buffer_size);
 
 #endif //COMMON_H

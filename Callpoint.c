@@ -31,9 +31,9 @@ int main(int argc, char **argv)
     const char *shm_path = argv[2];
     int shm_offset = atoi(argv[3]);
     char firealarm_addr[10];
-    int firealarm_port = split_Address_Port(argv[4], firealarm_addr);
+    int firealarm_port = splitAddressPort(argv[4], firealarm_addr);
 
-    /* Open share memory segment */
+    /* Open shared memory segment */
     int shm_fd = shm_open(shm_path, O_RDWR, 0666); /* Creating for testing purposes */
     if (shm_fd == -1)
     {

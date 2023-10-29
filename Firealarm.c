@@ -24,16 +24,15 @@ struct door_reg_datagram fail_safe_doors[100];
 
 /* Function initialisation */
 
-void removeOldTimestamps(struct timeval* detections, int* numDetections, int detection_period);
+void removeOldTimestamps(struct timeval *detections, int *numDetections, int detection_period);
 
-int isTimestampOld(struct datagram_format *datagram, int detection_period) ;
+int isTimestampOld(struct datagram_format *datagram, int detection_period);
 
-int isNewDoor(struct door_reg_datagram *new_door, struct door_reg_datagram fail_safe_doors[], int* num_doors);
+int isNewDoor(struct door_reg_datagram *new_door, struct door_reg_datagram fail_safe_doors[], int *num_doors);
 
-int setfireAlarm(shm_firealarm *shm, struct door_reg_datagram *doors ,int numDoors);
+int setfireAlarm(shm_firealarm *shm, struct door_reg_datagram *doors, int numDoors);
 
 struct door_confirm_datagram initialise_DREG_Struct(struct door_reg_datagram *door);
-
 
 int main(int argc, char **argv)
 {
@@ -47,14 +46,14 @@ int main(int argc, char **argv)
     /* Initialise input arguments */
     char *full_addr_firealarm = argv[1];
     char firealarm_addr[10];
-    int firealarm_port = split_Address_Port(full_addr_firealarm, firealarm_addr);
+    int firealarm_port = splitAddressPort(full_addr_firealarm, firealarm_addr);
     int temp_threshold = atoi(argv[2]);
     int min_detections = atoi(argv[3]);
     int detection_period = atoi(argv[4]);
     const char *shm_path = argv[6];
     int shm_offset = atoi(argv[7]);
     char overseer_addr[10];
-    int overseer_port = split_Address_Port(argv[8], overseer_addr);
+    int overseer_port = splitAddressPort(argv[8], overseer_addr);
     char buff[512]; // Safe buffer size for UDP communication
     int numDetections = 0;
     int numDoors = 0;
@@ -92,7 +91,8 @@ int main(int argc, char **argv)
 
     /* Create send socket to send UDP datagram to overseer */
     int sendfd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sendfd == -1) {
+    if (sendfd == -1)
+    {
         perror("socket()");
         exit(1);
     }
@@ -113,7 +113,7 @@ int main(int argc, char **argv)
     sprintf(buff, "FIREALARM %s:%d HELLO#\n", firealarm_addr, firealarm_port);
 
     /* Send initialisation message to overseer */
-    if (send_message_to(buff, overseer_port, overseer_addr, 1) == -1)
+    if (tcpSendMessageTo(buff, overseer_port, overseer_addr, 1) == -1)
     {
         perror("send_message_to()");
         exit(1);
@@ -121,22 +121,23 @@ int main(int argc, char **argv)
 
     /* Open share memory segment */
     int shm_fd = shm_open(shm_path, O_RDWR, 0666); // Creating for testing purposes
-    
-    if(shm_fd == -1){
+
+    if (shm_fd == -1)
+    {
         perror("shm_open()");
         exit(1);
     }
-    
+
     /*fstat helps to get information of the shared memory like its size*/
     struct stat shm_stat;
-    if(fstat(shm_fd, &shm_stat) == -1)
+    if (fstat(shm_fd, &shm_stat) == -1)
     {
         perror("fstat()");
         exit(1);
     }
 
-    char *shm = mmap(NULL, shm_stat.st_size,PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
-    if(shm == MAP_FAILED)
+    char *shm = mmap(NULL, shm_stat.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    if (shm == MAP_FAILED)
     {
         perror("mmap()");
         exit(1);
@@ -147,7 +148,7 @@ int main(int argc, char **argv)
 
     /* Normal function */
 
-    for(;;)
+    for (;;)
     {
         // Receives first 4 bytes and stores into buffer
         ssize_t bytes = recvfrom(recvsockfd, buff, 512, 0, NULL, NULL);
@@ -161,7 +162,6 @@ int main(int argc, char **argv)
         {
             // fire emergency datagram
             ifFireAlarmSet = setfireAlarm(shared, fail_safe_doors, numDoors);
-
         }
         else if ((strncmp(buff, "TEMP", 4) == 0) && !ifFireAlarmSet)
         {
@@ -177,14 +177,14 @@ int main(int argc, char **argv)
                 // Loop back to start
                 continue;
             }
-            else if (isTimestampOld(pointer,detection_period))
+            else if (isTimestampOld(pointer, detection_period))
             {
                 // Loop back to start
                 continue;
             }
             // Delete all timestamps older than {detection period} microseconds from the detection list
-            removeOldTimestamps(detections,&numDetections, detection_period);
-            // Add timestep to detections array 
+            removeOldTimestamps(detections, &numDetections, detection_period);
+            // Add timestep to detections array
             if (numDetections < 50)
             {
                 // Add timestamp to detections array
@@ -200,15 +200,14 @@ int main(int argc, char **argv)
             // Check if there is at least {min detections} entries in the detection list
             if (numDetections >= min_detections)
             {
-                
-                ifFireAlarmSet =  setfireAlarm(shared, fail_safe_doors, numDoors);
+
+                ifFireAlarmSet = setfireAlarm(shared, fail_safe_doors, numDoors);
             }
             else
             {
                 // Loop to start
                 continue;
             }
-
         }
         else if ((strncmp(buff, "DOOR", 4) == 0) && !ifFireAlarmSet)
         {
@@ -223,7 +222,7 @@ int main(int argc, char **argv)
             // If door not in the list add it
             if (isNewDoor(pointer, fail_safe_doors, &numDoors))
             {
-                if(numDoors < 100) // checks if max number of allowable doors reached
+                if (numDoors < 100) // checks if max number of allowable doors reached
                 {
                     fail_safe_doors[numDoors] = *pointer; // Dereference pointer to access the data
                     numDoors++;
@@ -236,8 +235,8 @@ int main(int argc, char **argv)
             }
             else
             {
-                // Loop to start 
-                continue; 
+                // Loop to start
+                continue;
             }
 
             /* Create an instance of DREG datagram */
@@ -246,9 +245,8 @@ int main(int argc, char **argv)
             // Send door confirmation datagram to overseer
             (void)sendto(sendfd, &confirm_door, (size_t)sizeof(struct door_reg_datagram), 0, (const struct sockaddr *)&sendtoaddr, senderaddr_len);
 
-            // Loop to start 
-            continue; 
-
+            // Loop to start
+            continue;
         }
         else if ((strncmp(buff, "DOOR", 4) == 0) && ifFireAlarmSet)
         {
@@ -260,14 +258,13 @@ int main(int argc, char **argv)
                 exit(1);
             }
 
-            char* buf = "OPEN_EMERG#";
+            char *buf = "OPEN_EMERG#";
 
             // Convert the in_addr to a string
             char *addr_str = inet_ntoa(pointer->door_addr);
 
-
             // Send OPEN_EMERG# to newly registered door
-            send_message_to(buf, pointer->door_port, addr_str, 1);
+            tcpSendMessageTo(buf, pointer->door_port, addr_str, 1);
 
             /* Create an instance of DREG datagram */
             struct door_confirm_datagram confirm_door = initialise_DREG_Struct(pointer);
@@ -275,30 +272,32 @@ int main(int argc, char **argv)
             // Send door confirmation datagram to overseer
             (void)sendto(sendfd, &confirm_door, (size_t)sizeof(struct door_reg_datagram), 0, (const struct sockaddr *)&sendtoaddr, senderaddr_len);
 
-            // Loop to start 
-            continue; 
+            // Loop to start
+            continue;
         }
     }
 
 } /* End main */
 
-
 /* Function Definitions */
 
 // Function to remove old timestamps
-void removeOldTimestamps(struct timeval* detections, int* numDetections, int detection_period) {
+void removeOldTimestamps(struct timeval *detections, int *numDetections, int detection_period)
+{
     struct timeval current_time;
     gettimeofday(&current_time, NULL); // Get the current time
 
     int numValidDetections = 0;
-    
-    for (int i = 0; i < *numDetections; i++) {
+
+    for (int i = 0; i < *numDetections; i++)
+    {
 
         int time_elapsed = (current_time.tv_sec - detections[i].tv_sec) * 1000000 +
-                    (current_time.tv_usec - detections[i].tv_usec);
-        
+                           (current_time.tv_usec - detections[i].tv_usec);
+
         // Check if the time difference is less than the detection period
-        if (time_elapsed < detection_period) {
+        if (time_elapsed < detection_period)
+        {
             detections[numValidDetections] = detections[i];
             numValidDetections++;
         }
@@ -308,22 +307,26 @@ void removeOldTimestamps(struct timeval* detections, int* numDetections, int det
 }
 
 // Function to check the timestamp
-int isTimestampOld(struct datagram_format *datagram, int detection_period) {
+int isTimestampOld(struct datagram_format *datagram, int detection_period)
+{
     struct timeval current_time;
     gettimeofday(&current_time, NULL); // Get the current time
 
     // Calculate the time difference in microseconds
     int time_elapsed = (current_time.tv_sec - datagram->timestamp.tv_sec) * 1000000 +
-                    (current_time.tv_usec - datagram->timestamp.tv_usec);
+                       (current_time.tv_usec - datagram->timestamp.tv_usec);
 
     return time_elapsed > detection_period;
 }
 
 // Function to check if the Door is present in the door list
-int isNewDoor(struct door_reg_datagram *new_door, struct door_reg_datagram fail_safe_doors[], int* num_doors) {
+int isNewDoor(struct door_reg_datagram *new_door, struct door_reg_datagram fail_safe_doors[], int *num_doors)
+{
     // Check if the new door is already in the list
-    for (int i = 0; i < *num_doors; i++) {
-        if (htonl(fail_safe_doors[i].door_port) == htonl(new_door->door_port)) {
+    for (int i = 0; i < *num_doors; i++)
+    {
+        if (htonl(fail_safe_doors[i].door_port) == htonl(new_door->door_port))
+        {
             // The door is already in the list, no need to add it again
             return 0;
         }
@@ -331,9 +334,8 @@ int isNewDoor(struct door_reg_datagram *new_door, struct door_reg_datagram fail_
     return 1;
 }
 
-
 // Function that sets fire alarm in shared memory and sends OPEN_EMERG# to every fail_safe doors
-int setfireAlarm(shm_firealarm *shm, struct door_reg_datagram doors[] ,int numDoors)
+int setfireAlarm(shm_firealarm *shm, struct door_reg_datagram doors[], int numDoors)
 {
     char *buff = "OPEN_EMERG#";
 
@@ -348,15 +350,13 @@ int setfireAlarm(shm_firealarm *shm, struct door_reg_datagram doors[] ,int numDo
         int doorPort = htons(doors[i].door_port);
         // Convert the in_addr to a string
         char *addr_str = inet_ntoa(doors[i].door_addr);
-        if (send_message_to(buff, doorPort, addr_str, 1) == -1)
+        if (tcpSendMessageTo(buff, doorPort, addr_str, 1) == -1)
         {
             perror("send_message_to()");
             exit(1);
         }
-
     }
     return 1;
-
 }
 
 struct door_confirm_datagram initialise_DREG_Struct(struct door_reg_datagram *door)
@@ -369,10 +369,4 @@ struct door_confirm_datagram initialise_DREG_Struct(struct door_reg_datagram *do
     new_door.door_port = door->door_port;
 
     return new_door;
-
 }
-
-
-
-
-    

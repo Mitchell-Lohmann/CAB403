@@ -100,7 +100,7 @@ int main(int argc, char **argv)
 
     char *full_addr = argv[1];
     char addr[10];
-    int port = split_Address_Port(full_addr, addr);
+    int port = splitAddressPort(full_addr, addr);
     doorOpenDuration = atoi(argv[2]);
     datagramResendDelay = atoi(argv[3]);
     // char *authorisation_file = argv[4];
@@ -279,9 +279,8 @@ int main(int argc, char **argv)
             }
             return 0;
         }
-        
-    } // end while
 
+    } // end while
 
     return 0;
 
@@ -321,18 +320,18 @@ void *handleTCP(void *p_tcp_socket)
         if (sscanf(buffer, "CARDREADER %s HELLO#", cardReaderID) == 1)
         {
             // Do nothing just close connection
-            close_connection(client_socket);
+            closeConnection(client_socket);
             return NULL;
         }
         else if (sscanf(buffer, "FIREALARM %s HELLO#", firealarm_full_addr) == 1)
         {
             // handle Fire alarm initialisation
-            firealarm_port = split_Address_Port(firealarm_full_addr, firealarm_addr);
+            firealarm_port = splitAddressPort(firealarm_full_addr, firealarm_addr);
 
             // Sends door reg datagram to fire alarm
             sendDoorRegDatagram(NULL);
 
-            close_connection(client_socket);
+            closeConnection(client_socket);
             return NULL;
         }
         else
@@ -369,7 +368,7 @@ void *handleTCP(void *p_tcp_socket)
         // printf("Num of doors in the list : %d\n", numDoor);
 
         // Closes the connection
-        close_connection(client_socket);
+        closeConnection(client_socket);
         return NULL;
     }
     else if (strstr(buffer, "FAIL_SECURE") != NULL)
@@ -390,7 +389,7 @@ void *handleTCP(void *p_tcp_socket)
         // printf("Num of doors in the list : %d\n", numDoor);
 
         // Closes the connection
-        close_connection(client_socket);
+        closeConnection(client_socket);
         return NULL;
     }
     else if (strstr(buffer, "SCANNED") != NULL)
@@ -670,9 +669,9 @@ int handleCardScan(int client_socket, char *string)
         if (doorControllerID != 0)
         { // Access is allowed
             access = "ALLOWED#";
-            send_message(client_socket, access); // Sends the response
+            sendMessage(client_socket, access); // Sends the response
             // Closes the connection
-            close_connection(client_socket);
+            closeConnection(client_socket);
 
             // Send OPEN# to Door Controller
             if (DoorOpen(doorControllerID) == 1) // Sends Open, Waits for OPENING, OPENED or ALREADY and close the connection
@@ -685,9 +684,9 @@ int handleCardScan(int client_socket, char *string)
         else
         { // Access is denied
             access = "DENIED#";
-            send_message(client_socket, access); // Sends the response
+            sendMessage(client_socket, access); // Sends the response
             // Closes the connection
-            close_connection(client_socket);
+            closeConnection(client_socket);
             return 0;
         }
     }
@@ -776,7 +775,7 @@ int sendDoorRegDatagram(void *args)
         }
     }
 
-    close_connection(sendfd);
+    closeConnection(sendfd);
     return 0;
 }
 
@@ -875,7 +874,7 @@ int initializeDoorData(struct DoorData *door, const char *buffer, int ifFailSafe
     if (sscanf(buffer, "DOOR %s %s FAIL_SAFE#", doorID, door_full_addr) == 2)
     {
         door->id = atoi(doorID);
-        door->door_port = htons(split_Address_Port(door_full_addr, door_addr));
+        door->door_port = htons(splitAddressPort(door_full_addr, door_addr));
 
         // Use inet_aton to convert the IP string to an in_addr structure
         if (inet_aton(door_addr, &door->door_addr) == 0)
@@ -922,7 +921,7 @@ int DoorOpen(int doorID)
         {
             char *msg = "OPEN#";
             // Sends message to Door Controller setting last param to zero doesnt close connection
-            doorfd = send_message_to(msg, ntohs(DoorList[i].door_port), inet_ntoa(DoorList[i].door_addr), 0);
+            doorfd = tcpSendMessageTo(msg, ntohs(DoorList[i].door_port), inet_ntoa(DoorList[i].door_addr), 0);
             break; // Can break out of loop
         }
         else
@@ -959,13 +958,13 @@ int DoorOpen(int doorID)
         if (strcmp(string, "OPENED#") == 0)
         {
             /* Close connection */
-            close_connection(doorfd);
+            closeConnection(doorfd);
             return 1;
         }
     }
     else if (strcmp(string, "ALREADY#") == 0)
     {
-        close_connection(doorfd);
+        closeConnection(doorfd);
         return 1;
     }
     else
@@ -988,7 +987,7 @@ void DoorClose(int doorID)
         {
             char *msg = "CLOSE#";
             // Sends message to Door Controller setting last param to zero doesnt close connection
-            doorfd = send_message_to(msg, ntohs(DoorList[i].door_port), inet_ntoa(DoorList[i].door_addr), 0);
+            doorfd = tcpSendMessageTo(msg, ntohs(DoorList[i].door_port), inet_ntoa(DoorList[i].door_addr), 0);
             break; // Can break out of loop
         }
         else
@@ -1025,13 +1024,13 @@ void DoorClose(int doorID)
         if (strcmp(string, "CLOSED#") == 0)
         {
             /* Close connection */
-            close_connection(doorfd);
+            closeConnection(doorfd);
         }
     }
     else if (strcmp(string, "EMERGENCY_MODE#") == 0 || strcmp(string, "ALREADY#") == 0)
     {
         // close connection
-        close_connection(doorfd);
+        closeConnection(doorfd);
     }
     else
     {
