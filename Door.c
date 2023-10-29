@@ -19,7 +19,7 @@
 /* Function declaration */
 char getDoorStatus(shm_door *shared);
 
-int main(int argc, char **argv)
+int main(int argc, char *argv[])
 {
     /* Check for error in input arguments */
     if (argc < 7)
@@ -53,7 +53,7 @@ int main(int argc, char **argv)
     /* Declare a data structure to specify the socket address (IP address + Port)
     memset is used to zero the struct out */
     struct sockaddr_in servaddr;
-    memset(&servaddr, 0, sizeof(servaddr));
+    (void)memset(&servaddr, 0, sizeof(servaddr));
 
     /* Create TCP IP Socket */
     door_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -92,7 +92,7 @@ int main(int argc, char **argv)
     }
 
     /* Sends the initialisation message to overseer */
-    tcpSendMessageTo(buff, overseer_port, overseer_addr, 1);
+    (void)tcpSendMessageTo(buff, overseer_port, overseer_addr, 1);
 
     /* Open share memory segment */
     int shm_fd = shm_open(shm_path, O_RDWR, 0666); // Creating for testing purposes
@@ -128,7 +128,7 @@ int main(int argc, char **argv)
     for (;;)
     {
         /* Resets the buffer */
-        memset(buff, 0, sizeof(buff));
+        (void)memset(buff, 0, sizeof(buff));
 
         /* Waits till overseer try to connect to Door */
         client_socket = accept(door_socket, NULL, NULL);
@@ -155,29 +155,29 @@ int main(int argc, char **argv)
                 respose = "ALREADY#";
 
                 /* Sends message and closes the connection */
-                sendMessage(client_socket, respose);
-                closeConnection(client_socket);
+                (void)sendMessage(client_socket, respose);
+                (void)closeConnection(client_socket);
             }
             else if (currentDoorStatus == 'C')
             {
                 respose = "OPENING#";
 
                 /* Door currently closed sends "OPENING#" to overseer */
-                sendMessage(client_socket, respose);
+                (void)sendMessage(client_socket, respose);
 
-                pthread_mutex_lock(&shared->mutex);
+                (void)pthread_mutex_lock(&shared->mutex);
                 shared->status = 'o';
-                pthread_cond_signal(&shared->cond_start);
-                pthread_cond_wait(&shared->cond_end, &shared->mutex);
-                pthread_mutex_unlock(&shared->mutex);
+                (void)pthread_cond_signal(&shared->cond_start);
+                (void)pthread_cond_wait(&shared->cond_end, &shared->mutex);
+                (void)pthread_mutex_unlock(&shared->mutex);
 
                 respose = "OPENED#";
 
                 /* Door currently open sends "OPENED#" to overseer */
-                sendMessage(client_socket, respose);
+                (void)sendMessage(client_socket, respose);
 
                 /* Close connection */
-                closeConnection(client_socket);
+                (void)closeConnection(client_socket);
 
                 /* Changes current door status */
                 currentDoorStatus = getDoorStatus(shared);
@@ -194,31 +194,31 @@ int main(int argc, char **argv)
             {
                 /* Door already open sends "ALREADY#" to overeer */
                 respose = "ALREADY#";
-                sendMessage(client_socket, respose);
+                (void)sendMessage(client_socket, respose);
 
                 /* Close connection */
-                closeConnection(client_socket);
+                (void)closeConnection(client_socket);
             }
             else if (currentDoorStatus == 'O')
             {
                 respose = "CLOSING#";
 
                 /* Door currently opened sends "CLOSING#" to overseer */
-                sendMessage(client_socket, respose);
+                (void)sendMessage(client_socket, respose);
 
-                pthread_mutex_lock(&shared->mutex);
+                (void)pthread_mutex_lock(&shared->mutex);
                 shared->status = 'c';
-                pthread_cond_signal(&shared->cond_start);
-                pthread_cond_wait(&shared->cond_end, &shared->mutex);
-                pthread_mutex_unlock(&shared->mutex);
+                (void)pthread_cond_signal(&shared->cond_start);
+                (void)pthread_cond_wait(&shared->cond_end, &shared->mutex);
+                (void)pthread_mutex_unlock(&shared->mutex);
 
                 respose = "CLOSED#";
 
                 /* Door currently open sends "OPENED#" to overseer */
-                sendMessage(client_socket, respose);
+                (void)sendMessage(client_socket, respose);
 
                 /* Close connection */
-                closeConnection(client_socket);
+                (void)closeConnection(client_socket);
 
                 /* Changes current door status */
                 currentDoorStatus = getDoorStatus(shared);
@@ -233,17 +233,17 @@ int main(int argc, char **argv)
         {
             if (currentDoorStatus == 'C')
             {
-                pthread_mutex_lock(&shared->mutex);
+                (void)pthread_mutex_lock(&shared->mutex);
                 shared->status = 'o';
-                pthread_cond_signal(&shared->cond_start);
-                pthread_cond_wait(&shared->cond_end, &shared->mutex);
-                pthread_mutex_unlock(&shared->mutex);
+                (void)pthread_cond_signal(&shared->cond_start);
+                (void)pthread_cond_wait(&shared->cond_end, &shared->mutex);
+                (void)pthread_mutex_unlock(&shared->mutex);
 
                 /* Set emergency mode */
                 emergency_mode = 1;
 
                 /* Close connection */
-                closeConnection(client_socket);
+                (void)closeConnection(client_socket);
 
                 /* Changes current door status */
                 currentDoorStatus = getDoorStatus(shared);
@@ -254,7 +254,7 @@ int main(int argc, char **argv)
                 emergency_mode = 1;
 
                 /* Close connection */
-                closeConnection(client_socket);
+                (void)closeConnection(client_socket);
 
                 /* Changes current door status */
                 currentDoorStatus = getDoorStatus(shared);
@@ -270,10 +270,10 @@ int main(int argc, char **argv)
         {
             /* respond with EMERGENCY_MODE# */
             respose = "EMERGENCY_MODE#";
-            sendMessage(client_socket, respose);
+            (void)sendMessage(client_socket, respose);
 
             /* Close connection */
-            closeConnection(client_socket);
+            (void)closeConnection(client_socket);
         }
         else
         {
@@ -292,9 +292,9 @@ char getDoorStatus(shm_door *shared)
 {
     char door_status;
     /* Lock mutex, store current status of door, unlock mutex */
-    pthread_mutex_lock(&shared->mutex);
+    (void)pthread_mutex_lock(&shared->mutex);
     door_status = shared->status;
-    pthread_mutex_unlock(&shared->mutex);
+    (void)pthread_mutex_unlock(&shared->mutex);
 
     return door_status;
 }

@@ -100,7 +100,7 @@ int main(int argc, char **argv)
     /* Run all the scenarios under the scenario file */
     handleScenarioLines(scenarioName, memory);
 
-    sleep(1);
+    usleep(130000);
 
     if (ifshutdown)
     {
@@ -128,7 +128,6 @@ int main(int argc, char **argv)
         }
     }
 
-    usleep(1000);
 
     return 0;
 } /* End main */
@@ -701,7 +700,7 @@ void handleScenarioLines(char *scenarioName, sharedMemory *memory)
                 }
                 int timeStamp = atoi(timestamp);
                 int tempSensorIndex = atoi(num);
-                float newTemperature = atoi(newTemp);
+                float newTemperature = atof(newTemp);
                 if (waitTillTimestamp(&startTime, timeStamp) == 0)
                 {
                     fprintf(stderr, "waitTillTimestamp - Varibles defined inproperly\n");
@@ -721,6 +720,8 @@ void handleScenarioLines(char *scenarioName, sharedMemory *memory)
             foundScenario = 1;
         }
     }
+    /* Sleep for 1 second after the all the scenarios are excecuted */
+    sleep(1); 
     ifshutdown = 1;
 
     fclose(fhA);
