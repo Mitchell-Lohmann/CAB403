@@ -100,7 +100,6 @@ int main(int argc, char **argv)
     /* Run all the scenarios under the scenario file */
     handleScenarioLines(scenarioName, memory);
 
-    sleep(1);
     usleep(130000);
 
     if (ifshutdown)
@@ -721,6 +720,8 @@ void handleScenarioLines(char *scenarioName, sharedMemory *memory)
             foundScenario = 1;
         }
     }
+    /* Sleep for 1 second after the all the scenarios are excecuted */
+    sleep(1); 
     ifshutdown = 1;
 
     fclose(fhA);
