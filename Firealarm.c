@@ -29,7 +29,7 @@ int isNewDoor(struct door_reg_datagram *new_door, struct door_reg_datagram fail_
 int setFireAlarm(shm_firealarm *shm, struct door_reg_datagram *doors, int numDoors);
 struct door_confirm_datagram initialise_DREG_Struct(struct door_reg_datagram *door);
 
-int main(int argc, char **argv)
+int main(int argc, char *argv[])
 {
     /* Check for error in input arguments */
     if (argc < 9)
