@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <signal.h>
 #include <stdint.h>
 #include <pthread.h>
 #include <sys/types.h>
@@ -17,6 +16,7 @@
 #include <errno.h> // Include errno.h for error code definitions
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <signal.h>
 #include "common.h"
 
 #define MAX_THREADS 100 // Max no: of TCP connection the server can handle
@@ -82,13 +82,10 @@ void DoorClose(int doorID);
 
 void handleTEMPDatagram(struct datagram_format *receivedDatagram);
 
-void sigterm_handler(int signum);
 
 int main(int argc, char **argv)
 {
-    // Register the SIGTERM handler
-    signal(SIGTERM, sigterm_handler);
-
+    
     /* Check for error in input arguments */
     if (argc < 8)
     {
@@ -237,7 +234,7 @@ int main(int argc, char **argv)
     }
 
     /* Infinite Loop */
-    while (1)
+    while (!ifShutDown)
     {
         if (thread_count < MAX_THREADS)
         {
@@ -246,8 +243,15 @@ int main(int argc, char **argv)
             client_socket = accept(server_socket, (struct sockaddr *)&clientaddr, (socklen_t *)&addr_size);
             if (client_socket == -1)
             {
-                perror("accept()");
-                exit(1);
+                if (errno == EINTR)
+                {
+                    continue; // Retry if the call was interrupted by a signal
+                }
+                else
+                {
+                    perror("accept()");
+                    exit(1);
+                }
             }
 
             int *tcp_socket = malloc(sizeof(int));
@@ -266,21 +270,20 @@ int main(int argc, char **argv)
             thread_array[thread_count++] = TCP_thread;
         }
 
-        if (ifShutDown)
-        {
-            printf("Gracefully exiting overseer\n");
-            pthread_mutex_destroy(&globalMutex);
-            pthread_mutex_destroy(&tempMutex);
-            pthread_join(UDP, NULL);
-            pthread_join(manualAccess, NULL);
-            for (int i = 0; i < thread_count; i++) // wait for all TCP threads to join
-            {
-                pthread_join(thread_array[i], NULL);
-            }
-            return 0;
-        }
-
     } // end while
+    if (ifShutDown)
+    {
+        closeConnection(server_socket);
+        pthread_mutex_destroy(&globalMutex);
+        pthread_mutex_destroy(&tempMutex);
+        pthread_join(UDP, NULL);
+        pthread_join(manualAccess, NULL);
+        for (int i = 0; i < thread_count; i++) // wait for all TCP threads to join
+        {
+            pthread_join(thread_array[i], NULL);
+        }
+        return 0;
+    }
 
     return 0;
 
@@ -411,6 +414,7 @@ void *handleTCP(void *p_tcp_socket)
     }
 
     fprintf(stderr, "Did not enter if in handleTCP\n");
+    close(client_socket);
     return NULL;
 }
 
@@ -1100,10 +1104,3 @@ void handleTEMPDatagram(struct datagram_format *receivedDatagram)
     }
 }
 
-//<summary>
-// Set a flag to indicate shutdown
-//</summary>
-void sigterm_handler(int signum)
-{
-    ifShutDown = 1;
-}
