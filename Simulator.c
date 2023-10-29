@@ -23,7 +23,7 @@ int cardReaderNum = 0; // Initialise variables to keep count of initialised prog
 int doorNum = 0;       // Initialise variables to keep count of initialised programs
 int tempsensorNum = 0; // Initialise variables to keep count of initialised programs
 int callpointNum = 0;  // Initialise variables to keep count of initialised programs
-int portNumber = 3001; // Initial Port Number
+int portNumber = 3000; // Initial Port Number
 struct timeval startTime;
 int ifshutdown;
 
@@ -42,7 +42,7 @@ struct door_data
     int door_open_duration;
 };
 
-char overseerAddress[17] = "127.0.0.1:3001";
+char overseerAddress[17] = "127.0.0.1:3000";
 
 pthread_mutex_t globalMutex;
 
