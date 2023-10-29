@@ -92,9 +92,8 @@ int tcpConnectTo(int program_port, const char *program_addr)
 //</summary>
 unsigned int tcpSendMessageTo(const char *buf, const int program_port, const char *program_addr, int ifClose)
 {
-    tcpSendMessageTo
-        /* Connects to overseer before sending message */
-        int fd = tcp_Connect_To(program_port, program_addr);
+    /* Connects to overseer before sending message */
+    int fd = tcp_Connect_To(program_port, program_addr);
     if (fd == -1)
     {
         fprintf(stderr, "connect_to");
