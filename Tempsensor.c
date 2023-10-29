@@ -251,7 +251,7 @@ int main(int argc, char **argv)
                     socklen_t destaddr_len = sizeof(destaddr);
                     (void)memset(&destaddr, 0, sizeof(destaddr));
                     destaddr.sin_family = AF_INET;
-                    destaddr.sin_port = htons((in_port_t)receiver_port[i]);
+                    destaddr.sin_port = htons((in_port_t)receiverPort[i]);
                     if (inet_pton(AF_INET, receiverAddr, &destaddr.sin_addr) != 1)
                     {
                         fprintf(stderr, "inet_pton(%s)\n", receiverAddr);

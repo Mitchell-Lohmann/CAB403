@@ -116,7 +116,7 @@ int main(int argc, char **argv)
     }
 
     /* Open share memory segment */
-    int shm_fd = shm_open(shmPath, O_RDWR, 0666);s
+    int shm_fd = shm_open(shmPath, O_RDWR, 0666);
 
     if (shm_fd == -1)
     {

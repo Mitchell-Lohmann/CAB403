@@ -298,12 +298,12 @@ void initSharedStructs(char *scenarioName, sharedMemory *memory)
     pthread_condattr_destroy(&cattr);
     pthread_mutexattr_destroy(&mattr);
 }
-End main * /
+/* End main */
 
-    /// <summary>
-    /// Function takes input of scenario file name and runs all initialisation setup
-    /// commands. Returns no value. Errors if scenario file is not valid.
-    /// </summary>
+    // <summary>
+    // Function takes input of scenario file name and runs all initialisation setup
+    // commands. Returns no value. Errors if scenario file is not valid.
+    // </summary>
     void init(char *scenarioName, sharedMemory *memory)
 {
     char *serverAddress = "127.0.0.1";

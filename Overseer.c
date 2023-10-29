@@ -420,8 +420,8 @@ void *handleTCP(void *p_tcp_socket)
 // Thread function to handle UDP datagrams received by overseer
 //</summary>
 void *handleUDP(void *p_recvsockfd)
-{Safe buffer size for UDP communications
-/* Safe buffer size for UDP communications */
+{
+    /* Safe buffer size for UDP communications */
     char buff[512]; 
 
     int receivefd = *(int *)p_recvsockfd;
@@ -499,7 +499,7 @@ void *handleManualAccess(void *arg)
     while (1)
     {
         int doorID;
-        int ifFireAlarm;
+        int ifFireAlarm = 0;
 
         /* Checks flag */
         if (ifFireAlarm)
@@ -891,7 +891,7 @@ int initializeDoorData(struct DoorData *door, const char *buffer, int ifFailSafe
         if (inet_aton(door_addr, &door->door_addr) == 0)
         {
             /* Handling the case where the IP string is invalid */
-            fprintf(stderr, "Error: Invalid IP address\n");Return an error code to indicate failure
+            fprintf(stderr, "Error: Invalid IP address\n");
             /* Return an error code to indicate failure */
             return 0;
         }
@@ -933,7 +933,7 @@ int DoorOpen(int doorID)
             char *msg = "OPEN#";
             /* Sends message to Door Controller setting last param to zero doesnt close connection 
             */
-            doorfd = tcpSendMessageTo(msg, ntohs(DoorList[i].door_port), inet_ntoa(DoorList[i].door_addr), 0);Can break out of loop
+            doorfd = tcpSendMessageTo(msg, ntohs(DoorList[i].door_port), inet_ntoa(DoorList[i].door_addr), 0);
             /* Can break out of loop */
             break;
         }

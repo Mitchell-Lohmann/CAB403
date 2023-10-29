@@ -82,7 +82,7 @@ int main(int argc, char **argv)
     socklen_t destaddr_len = sizeof(destaddr);
     (void)memset(&destaddr, 0, sizeof(destaddr));
     destaddr.sin_family = AF_INET;
-    destaddr.sin_port = htons((in_port_t)firealarm_port);
+    destaddr.sin_port = htons((in_port_t)firealarmPort);
     if (inet_pton(AF_INET, firealarmAddr, &destaddr.sin_addr) != 1)
     {
         fprintf(stderr, "inet_pton(%s)\n", firealarmAddr);
