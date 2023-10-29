@@ -94,7 +94,7 @@ int main(int argc, char **argv)
     char buff[BUFFER_SIZE];
 
     /* Write msg into buf */
-    sprintf(buff, "CARDREADER {%d} HELLO#\n", id);
+    sprintf(buff, "CARDREADER {%d} HELLO#", id);
 
     /* Send message to overseer */
     tcpSendMessageTo(buff, overseer_port, overseer_addr, 1);
