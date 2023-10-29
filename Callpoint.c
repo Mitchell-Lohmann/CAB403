@@ -17,7 +17,7 @@
 
 /* Code is written to be complaint with saftey standards  MISRA-C and IEC 61508. */
 
-int main(int argc, char **argv)
+int main(int argc, char *argv[])
 {
     /* Check for error in input arguments */
     if (argc < 5)
@@ -90,7 +90,7 @@ int main(int argc, char **argv)
     }
 
     /* Locks the mutex */
-    pthread_mutex_lock(&shared->mutex);
+    (void)pthread_mutex_lock(&shared->mutex);
     for (;;)
     {
         if (shared->status == '*')
