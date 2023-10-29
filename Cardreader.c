@@ -27,27 +27,26 @@ int main(int argc, char **argv)
 
     /* Initialise input arguments */
     int id = atoi(argv[1]);
-    // int waittime = atoi(argv[2]);
-    const char *shm_path = argv[3];
-    int shm_offset = atoi(argv[4]);
-    char *full_addr = argv[5];
+    const char *shmPath = argv[3];
+    int shmOffset = atoi(argv[4]);
+    char *fullAddr = argv[5];
 
-    char overseer_addr[10];
-    int overseer_port;
+    char overseerAddr[10];
+    int overseerPort;
 
     // Use strtok to split the input string using ':' as the delimiter
-    char *token = strtok((char *)full_addr, ":");
+    char *token = strtok((char *)fullAddr, ":");
     if (token != NULL)
     {
         // token now contains "127.0.0.1"
 
-        memcpy(overseer_addr, token, 9);
-        overseer_addr[9] = '\0';
+        memcpy(overseerAddr, token, 9);
+        overseerAddr[9] = '\0';
 
         token = strtok(NULL, ":");
         if (token != NULL)
         {
-            overseer_port = atoi(token); // Store the port as an integer
+            overseerPort = atoi(token); // Store the port as an integer
         }
         else
         {
@@ -62,7 +61,7 @@ int main(int argc, char **argv)
     }
 
     /* Open share memory segment */
-    int shm_fd = shm_open(shm_path, O_RDWR, 0666); // Creating for testing purposes
+    int shm_fd = shm_open(shmPath, O_RDWR, 0666); // Creating for testing purposes
 
     if (shm_fd == -1)
     {
@@ -86,7 +85,7 @@ int main(int argc, char **argv)
     }
 
     /* shared is used to access the shared memory */
-    shm_cardreader *shared = (shm_cardreader *)(shm + shm_offset);
+    shm_cardreader *shared = (shm_cardreader *)(shm + shmOffset);
 
     /* Initialisation */
 
@@ -97,18 +96,16 @@ int main(int argc, char **argv)
     sprintf(buff, "CARDREADER %d HELLO#", id);
 
     /* Send message to overseer */
-    tcpSendMessageTo(buff, overseer_port, overseer_addr, 1);
-
-    // printf("Send this msg to overseer %s \n", buff);
+    tcpSendMessageTo(buff, overseerPort, overseerAddr, 1);
 
     /* Normal Operation for cardreader */
 
-    // Lock the mutex
+    /* Lock the mutex */
     pthread_mutex_lock(&shared->mutex);
 
     for (;;)
     {
-        // Look at the scanned code
+        /* Look at the scanned code */
         if (shared->scanned[0] != '\0')
         {
             char buf[17];
@@ -118,7 +115,7 @@ int main(int argc, char **argv)
             sprintf(buff, "CARDREADER %d SCANNED %s#", id, buf);
 
             /* Connects to overseer and sends the message in the buffer*/
-            unsigned int overseerFd = tcpSendMessageTo(buff, overseer_port, overseer_addr, 0);
+            unsigned int overseerFd = tcpSendMessageTo(buff, overseerPort, overseerAddr, 0);
             if (overseerFd == -1)
             {
                 fprintf(stderr, "send_message_to");
@@ -147,4 +144,4 @@ int main(int argc, char **argv)
     }
     close(shm_fd);
 
-} // end main
+} /* end main */

@@ -13,7 +13,7 @@
 #include <sys/time.h>
 #include <time.h>
 #include <fcntl.h>
-#include <errno.h> // Include errno.h for error code definitions
+#include <errno.h>
 #include "common.h"
 
 int main(int argc, char **argv)

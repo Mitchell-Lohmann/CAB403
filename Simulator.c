@@ -19,18 +19,22 @@
 #include "common.h"
 
 /* Global variables */
-int cardReaderNum = 0; // Initialise variables to keep count of initialised programs
-int doorNum = 0;       // Initialise variables to keep count of initialised programs
-int tempsensorNum = 0; // Initialise variables to keep count of initialised programs
-int callpointNum = 0;  // Initialise variables to keep count of initialised programs
-int portNumber = 3000; // Initial Port Number
+/* Initialise variables to keep count of initialised programs */
+int cardReaderNum = 0;
+int doorNum = 0;
+int tempsensorNum = 0;
+int callpointNum = 0;
+/* Initial port number */
+int portNumber = 3000;
 struct timeval startTime;
 int ifshutdown;
 
-char *shm_path = "/shm"; // shm path of the shared memory
-pid_t pidList[102];      // List of process IDs
-int pidNum = 0;          // Initialise count of pids
-
+/* shm path of the shared memory */
+char *shm_path = "/shm";
+/* List of process IDs */
+pid_t pidList[102];
+/* Initialise count of pids */
+int pidNum = 0;
 int overseerPort;
 int fireAlarmPort;
 int doorPort[20];
@@ -38,7 +42,8 @@ int temPort[20];
 
 struct door_data
 {
-    shm_door *door; // Pointer to shm_door
+    /* Pointer to shm_door */
+    shm_door *door;
     int door_open_duration;
 };
 
@@ -73,34 +78,34 @@ int main(int argc, char **argv)
 
     sharedMemory *memory;
 
-    // Remove any previous instance of the shared memory object, if it exists.
+    /* Remove any previous instance of the shared memory object, if it exists. */
     shm_unlink(shm_path);
 
-    // This function initialises the shared memory
+    /* This function initialises the shared memory */
     initSharedMemory(shm_path, &memory);
 
-    // This functions innitialises the mutex and condvars and the default values in the struct
+    /* This functions innitialises the mutex and condvars and the default values in the struct */
     initSharedStructs(scenarioName, memory);
 
-    // Runs all the init programs from the scenario file
+    /* Runs all the init programs from the scenario file */
     init(scenarioName, memory);
 
     sleep(1);
 
-    // Start simulating events
+    /* Start simulating events */
 
-    // Get the start time for simulating events
+    /* Get the start time for simulating events */
     gettimeofday(&startTime, NULL);
 
-    // Run all the scenarios under the scenario file
+    /* Run all the scenarios under the scenario file */
     handleScenarioLines(scenarioName, memory);
 
     sleep(1);
 
     if (ifshutdown)
     {
-        // Kill all process
-        // Signal to send for termination (SIGTERM, signal 15)
+        /* Kill all process */
+        /* Signal to send for termination (SIGTERM, signal 15) */
         for (int i = 0; i < pidNum; i++)
         {
             if (kill(pidList[i], SIGTERM) != 0)
@@ -111,7 +116,7 @@ int main(int argc, char **argv)
         }
         printf("Gracefully shutting down all programs\n");
     }
-    else // Something went wrong forecekill every process
+    else /* Something went wrong forecekill every process */
     {
         for (int i = 0; i < pidNum; i++)
         {
@@ -126,16 +131,16 @@ int main(int argc, char **argv)
     usleep(1000);
 
     return 0;
-}
+} /* End main */
 
 //<summary>
-// Function that creates the shared memory
+// Function that creates the shared memory.
 //</summary>
 void initSharedMemory(char *shm_path, sharedMemory **memory)
 {
 
-    /* Open share memory segment */
-    int shm_fd = shm_open(shm_path, O_RDWR | O_CREAT, 0666); // Creates shared memory
+    /* Open and create shared memory segment */
+    int shm_fd = shm_open(shm_path, O_RDWR | O_CREAT, 0666);
 
     if (shm_fd == -1)
     {
@@ -143,8 +148,8 @@ void initSharedMemory(char *shm_path, sharedMemory **memory)
         exit(1);
     }
 
-    // Set the capacity of the shared memory object via ftruncate. If the
-    // operation fails, ensure that shm->data is NULL and return false.
+    /* Set the capacity of the shared memory object via ftruncate. If the */
+    /* operation fails, ensure that shm->data is NULL and return false. */
     if (ftruncate(shm_fd, (off_t)sizeof(sharedMemory)) == -1)
     {
         perror("ftruncate()");
@@ -172,13 +177,15 @@ void initSharedStructs(char *scenarioName, sharedMemory *memory)
         return;
     }
 
-    // Create attribute for mutex
+    /* Create attribute for mutex */
     pthread_mutexattr_t mattr;
-    // Create attribute for condvar
+    /* Create attribute for condvar */
     pthread_condattr_t cattr;
 
-    pthread_mutexattr_setpshared(&mattr, PTHREAD_PROCESS_SHARED); // Set mutex attribute to Process shared
-    pthread_condattr_setpshared(&cattr, PTHREAD_PROCESS_SHARED);  // Set condvar attribute to Process shared
+    /* Set mutex attribute to Process shared */
+    pthread_mutexattr_setpshared(&mattr, PTHREAD_PROCESS_SHARED);
+    /* Set condvar attribute to Process shared */
+    pthread_condattr_setpshared(&cattr, PTHREAD_PROCESS_SHARED);
 
     /* Check each line for "INIT, if found find the process and execl() it"*/
     while (fgets(lineA, sizeof(lineA), fhA) != NULL)
@@ -187,85 +194,93 @@ void initSharedStructs(char *scenarioName, sharedMemory *memory)
         {
             char *pointer;
 
-            char *token = strtok_r(lineA, " ", &pointer); // Split the line by space
-            token = strtok_r(NULL, " ", &pointer);        // Split the line by space
+            char *token = strtok_r(lineA, " ", &pointer);
+            token = strtok_r(NULL, " ", &pointer);
 
             if (strcmp(token, "overseer") == 0)
             {
-                pthread_mutex_init(&memory->overseer.mutex, &mattr); // Initialise the mutex in shared memory
-                pthread_cond_init(&memory->overseer.cond, &cattr);   // Initialise the condvar in shared memory
+                /* Initialise the mutex and condvar in shared memory */
+                pthread_mutex_init(&memory->overseer.mutex, &mattr);
+                pthread_cond_init(&memory->overseer.cond, &cattr);
 
-                pthread_mutex_lock(&memory->overseer.mutex);   // Lock the mutex
-                memory->overseer.security_alarm = '-';         // Set security alarm to '-'
-                pthread_mutex_unlock(&memory->overseer.mutex); // Unlock the mutex
+                /* Lock the mutex, Set security alarm to '-', Unlock the mutex" */
+                pthread_mutex_lock(&memory->overseer.mutex);
+                memory->overseer.security_alarm = '-';
+                pthread_mutex_unlock(&memory->overseer.mutex);
 
-                overseerPort = portNumber++; // Keeps track of port number of overseer
+                /* Keeps track of port number of overseer */
+                overseerPort = portNumber++;
             }
             else if (strcmp(token, "cardreader") == 0)
             {
 
-                pthread_mutex_init(&memory->cardreader[cardReaderNum].mutex, &mattr);        // Initialise the mutex in shared memory
-                pthread_cond_init(&memory->cardreader[cardReaderNum].response_cond, &cattr); // Initialise the condvar in shared
-                pthread_cond_init(&memory->cardreader[cardReaderNum].scanned_cond, &cattr);  // Initialise the condvar in shared
+                pthread_mutex_init(&memory->cardreader[cardReaderNum].mutex, &mattr);
+                pthread_cond_init(&memory->cardreader[cardReaderNum].response_cond, &cattr);
+                pthread_cond_init(&memory->cardreader[cardReaderNum].scanned_cond, &cattr);
 
                 pthread_mutex_lock(&memory->cardreader[cardReaderNum].mutex);
 
-                /* Debug */
-                // strcpy(memory->cardreader[cardReaderNum].scanned, "db4ed0a0bfbb00ac");
-
-                memset(memory->cardreader[cardReaderNum].scanned, '\0', sizeof(memory->cardreader[cardReaderNum].scanned)); // Set scanned array to '\0'
-                memory->cardreader->response = '\0';                                                                        // set response char to '\0'
+                /* Set scanned array to '\0', set response char to '\0'*/
+                memset(memory->cardreader[cardReaderNum].scanned, '\0', sizeof(memory->cardreader[cardReaderNum].scanned));
+                memory->cardreader->response = '\0';
 
                 pthread_mutex_unlock(&memory->cardreader[cardReaderNum].mutex);
 
-                cardReaderNum++; // Updates global cardreader count
+                /* Updates global cardreader count */
+                cardReaderNum++;
             }
             else if (strcmp(token, "firealarm") == 0)
             {
-
-                pthread_mutex_init(&memory->firealarm.mutex, &mattr); // Initialise the mutex in shared memory
-                pthread_cond_init(&memory->firealarm.cond, &cattr);   // Initialise the condvar in shared memory
+                /* Initialise the mutex and condvar in shared memory */
+                pthread_mutex_init(&memory->firealarm.mutex, &mattr);
+                pthread_cond_init(&memory->firealarm.cond, &cattr);
 
                 pthread_mutex_lock(&memory->firealarm.mutex);
                 memory->firealarm.alarm = '-';
                 pthread_mutex_unlock(&memory->firealarm.mutex);
 
-                fireAlarmPort = portNumber++; // Keeps track of port number of firealarm
+                /* Keeps track of port number of firealarm */
+                fireAlarmPort = portNumber++;
             }
             else if (strcmp(token, "door") == 0)
             {
-
-                pthread_mutex_init(&memory->doors[doorNum].mutex, &mattr);     // Initialise the mutex in shared memory
-                pthread_cond_init(&memory->doors[doorNum].cond_end, &cattr);   // Initialise the condvar in shared memory
-                pthread_cond_init(&memory->doors[doorNum].cond_start, &cattr); // Initialise the condvar in shared memory
+                /* Initialise the mutex and condvar in shared memory */
+                pthread_mutex_init(&memory->doors[doorNum].mutex, &mattr);
+                pthread_cond_init(&memory->doors[doorNum].cond_end, &cattr);
+                pthread_cond_init(&memory->doors[doorNum].cond_start, &cattr);
 
                 pthread_mutex_lock(&memory->doors[doorNum].mutex);
                 memory->doors[doorNum].status = 'C';
                 pthread_mutex_unlock(&memory->doors[doorNum].mutex);
 
-                doorPort[doorNum++] = portNumber++; // Keeps track of port numbers of each door and increments global doorNum
+                /* Keeps track of port numbers of each door and increments global doorNum */
+                doorPort[doorNum++] = portNumber++;
             }
             else if (strcmp(token, "callpoint") == 0)
             {
-                pthread_mutex_init(&memory->callpoint[callpointNum].mutex, &mattr); // Initialise the mutex in shared memory
-                pthread_cond_init(&memory->callpoint[callpointNum].cond, &cattr);   // Initialise the condvar in shared memory
+                /* Initialise the mutex and condvar in shared memory */
+                pthread_mutex_init(&memory->callpoint[callpointNum].mutex, &mattr);
+                pthread_cond_init(&memory->callpoint[callpointNum].cond, &cattr);
 
                 pthread_mutex_lock(&memory->callpoint[callpointNum].mutex);
                 memory->callpoint[callpointNum].status = '-';
                 pthread_mutex_unlock(&memory->callpoint[callpointNum].mutex);
 
-                callpointNum++; // Updates global callpoint count
+                /* Updates global callpoint count */
+                callpointNum++;
             }
             else if (strcmp(token, "tempsensor") == 0)
             {
-                pthread_mutex_init(&memory->tempsensor[tempsensorNum].mutex, &mattr); // Initialise the mutex in shared memory
-                pthread_cond_init(&memory->tempsensor[tempsensorNum].cond, &cattr);   // Initialise the condvar in shared memory
+                /* Initialise the mutex and condvar in shared memory */
+                pthread_mutex_init(&memory->tempsensor[tempsensorNum].mutex, &mattr);
+                pthread_cond_init(&memory->tempsensor[tempsensorNum].cond, &cattr);
 
                 pthread_mutex_lock(&memory->tempsensor[tempsensorNum].mutex);
                 memory->tempsensor[tempsensorNum].temperature = 22.0;
                 pthread_mutex_unlock(&memory->tempsensor[tempsensorNum].mutex);
 
-                temPort[tempsensorNum++] = portNumber++; // Keeps track of port numbers of tempsensors and updates global port number
+                /* Keeps track of port numbers of tempsensors and updates global port number */
+                temPort[tempsensorNum++] = portNumber++;
             }
             else
             {
@@ -279,16 +294,17 @@ void initSharedStructs(char *scenarioName, sharedMemory *memory)
         }
     }
     fclose(fhA);
-    // Can destroy the condition attribute as it's no longer needed
+    /* Can destroy the condition attribute as it's no longer needed */
     pthread_condattr_destroy(&cattr);
     pthread_mutexattr_destroy(&mattr);
 }
+End main * /
 
-/// <summary>
-/// Function takes input of scenario file name and runs all initialisation setup
-/// commands. Returns no value. Errors if scenario file is not valid.
-/// </summary>
-void init(char *scenarioName, sharedMemory *memory)
+    /// <summary>
+    /// Function takes input of scenario file name and runs all initialisation setup
+    /// commands. Returns no value. Errors if scenario file is not valid.
+    /// </summary>
+    void init(char *scenarioName, sharedMemory *memory)
 {
     char *serverAddress = "127.0.0.1";
 
@@ -296,7 +312,7 @@ void init(char *scenarioName, sharedMemory *memory)
     FILE *fhA = fopen(scenarioName, "r");
     char lineA[100]; // Assuming a line won't exceed 100 characters
     char lineCompare[100];
-    // int currentPort = 3000; // Starting port number
+    /* int currentPort = 3000; // Starting port number */
 
     /* Check to see if file opened */
     if (fhA == NULL)
@@ -305,7 +321,7 @@ void init(char *scenarioName, sharedMemory *memory)
         return;
     }
 
-    // Variables to keep track of how many components initialised
+    /* Variables to keep track of how many components initialised */
     int doorCount = 0;
     int cardreaderCount = 0;
     int callpointCount = 0;
@@ -317,7 +333,7 @@ void init(char *scenarioName, sharedMemory *memory)
         if (strstr(lineA, "INIT"))
         {
             char *pointer;
-            char *token = strtok_r(lineCompare, " ", &pointer); // Split the line by space
+            char *token = strtok_r(lineCompare, " ", &pointer);
             token = strtok_r(NULL, " ", &pointer);
 
             /* Create child process */
@@ -334,14 +350,17 @@ void init(char *scenarioName, sharedMemory *memory)
             {
                 if (strcmp(token, "overseer") == 0)
                 {
+                    /* Calculates the offset for overseer in shared memory */
+                    ssize_t offset = offsetof(sharedMemory, overseer);
 
-                    ssize_t offset = offsetof(sharedMemory, overseer); // Calculates the offset for overseer in shared memory
+                    /* char buffer for storing the offset */
+                    char shm_offset[256];
 
-                    char shm_offset[256]; // char buffer for storing the offset
+                    /* Convert offset to string */
+                    snprintf(shm_offset, sizeof(shm_offset), "%zd", offset);
 
-                    snprintf(shm_offset, sizeof(shm_offset), "%zd", offset); // Convert offset to string
-
-                    char door_open_duration[64], datagram_resend_delay[64], authorisation_file[64], connection_file[64], layout_file[64]; // To grab input argument from text file
+                    /* To grab input argument from text file */
+                    char door_open_duration[64], datagram_resend_delay[64], authorisation_file[64], connection_file[64], layout_file[64];
 
                     /* Check that sscanf is successful */
                     if (sscanf(lineA, "INIT overseer %s %s %s %s %s", door_open_duration, datagram_resend_delay, authorisation_file, connection_file, layout_file) != 5)
@@ -350,11 +369,11 @@ void init(char *scenarioName, sharedMemory *memory)
                         exit(1);
                     }
 
-                    // snprintf(overseerAddress, 17, "%s:%d", serverAddress, overseerPort);
+                    /* snprintf(overseerAddress, 17, "%s:%d", serverAddress, overseerPort); */
 
                     char *args[] = {"./overseer", overseerAddress, door_open_duration, datagram_resend_delay, authorisation_file, connection_file, layout_file, shm_path, shm_offset, NULL};
 
-                    // Launches overseer in the parent
+                    /* Launches overseer in the parent */
                     execv("overseer", args);
 
                     perror("execv");
@@ -370,13 +389,15 @@ void init(char *scenarioName, sharedMemory *memory)
                         exit(1);
                     }
 
-                    // Scenario for door handled in here
-                    // Initialise a thread to handle Door Scenario file
+                    /* Scenario for door handled in here */
+                    /* Initialise a thread to handle Door Scenario file */
                     pthread_t doorThread;
 
-                    struct door_data *doorData = (struct door_data *)malloc(sizeof(struct door_data)); // Allocate memory to the pointer
+                    /* Allocate memory to the pointer */
+                    struct door_data *doorData = (struct door_data *)malloc(sizeof(struct door_data));
 
-                    doorData->door = &memory->doors[doorCount]; // Pointer to the door initialised
+                    /* Pointer to the door initialised */
+                    doorData->door = &memory->doors[doorCount];
                     doorData->door_open_duration = atoi(doorOpenDelay);
 
                     if (pthread_create(&doorThread, NULL, handleDoorScenario, doorData) != 0)
@@ -385,22 +406,27 @@ void init(char *scenarioName, sharedMemory *memory)
                         exit(1);
                     }
 
-                    doorCount++;                   // increments doorCount
-                    pidList[pidNum++] = child_pid; // Add child pid to pid list
+                    /* increments doorCount */
+                    doorCount++;
+                    /* Add child pid to pid list */
+                    pidList[pidNum++] = child_pid;
                 }
                 else if (!strcmp(token, "cardreader"))
                 {
                     cardreaderCount++;
-                    pidList[pidNum++] = child_pid; // Add child pid to pid list
+                    /* Add child pid to pid list */
+                    pidList[pidNum++] = child_pid;
                 }
                 else if (!strcmp(token, "firealarm"))
                 {
-                    pidList[pidNum++] = child_pid; // Add child pid to pid list
+                    /* Add child pid to pid list */
+                    pidList[pidNum++] = child_pid;
                 }
                 else if (!strcmp(token, "callpoint"))
                 {
                     callpointCount++;
-                    pidList[pidNum++] = child_pid; // Add child pid to pid list
+                    /* Add child pid to pid list */
+                    pidList[pidNum++] = child_pid;
                 }
                 else if (!strcmp(token, "tempsensor"))
                 {
@@ -408,12 +434,15 @@ void init(char *scenarioName, sharedMemory *memory)
                     pidList[pidNum++] = child_pid;
                 }
             }
-            else if (child_pid == 0) // Child process
+            /* Child process */
+            else if (child_pid == 0)
             {
-                usleep(250000); // Child sleeps for 250,000 microseconds, which is 250 milliseconds
+                /* Child sleeps for 250,000 microseconds, which is 250 milliseconds */
+                usleep(250000);
                 if (!strcmp(token, "overseer"))
                 {
-                    pid_t parent_pid = getppid(); // Gets parents process
+                    /* Gets parents process */
+                    pid_t parent_pid = getppid();
                     pidList[pidNum++] = parent_pid;
                 }
                 if (!strcmp(token, "door"))
@@ -421,9 +450,11 @@ void init(char *scenarioName, sharedMemory *memory)
 
                     ssize_t offset = offsetof(sharedMemory, doors) + (doorCount * sizeof(shm_door));
 
-                    char shm_offset[256]; // char buffer for storing the offset
+                    /* char buffer for storing the offset */
+                    char shm_offset[256];
 
-                    snprintf(shm_offset, sizeof(shm_offset), "%zd", offset); // Convert offset to string
+                    /* Convert offset to string */
+                    snprintf(shm_offset, sizeof(shm_offset), "%zd", offset);
 
                     char id[64], config[64], doorOpenDelay[64], doorAddress[17];
 
@@ -436,8 +467,6 @@ void init(char *scenarioName, sharedMemory *memory)
 
                     snprintf(doorAddress, 17, "%s:%d", serverAddress, doorPort[doorCount]);
 
-                    // printf("%s %s %s %s %s %s\n", id, doorAddress, config, shm_path, shm_offset, overseerAddress);
-
                     execl("door", "./door", id, doorAddress, config, shm_path, shm_offset, overseerAddress, NULL);
                     perror("execl");
                 }
@@ -446,9 +475,11 @@ void init(char *scenarioName, sharedMemory *memory)
 
                     ssize_t offset = offsetof(sharedMemory, cardreader) + (cardreaderCount * sizeof(shm_cardreader));
 
-                    char shm_offset[256]; // char buffer for storing the offset
+                    /* char buffer for storing the offset */
+                    char shm_offset[256];
 
-                    snprintf(shm_offset, sizeof(shm_offset), "%zd", offset); // Convert offset to string
+                    /* Convert offset to string */
+                    snprintf(shm_offset, sizeof(shm_offset), "%zd", offset);
 
                     char id[64], waitTime[64];
 
@@ -459,8 +490,6 @@ void init(char *scenarioName, sharedMemory *memory)
                         exit(1);
                     }
 
-                    // printf("cardreaderID : %s cardReaderCount: %d %s %s %s %s\n", id, cardreaderCount,  waitTime, shm_path, shm_offset, overseerAddress);
-
                     execl("cardreader", "./cardreader", id, waitTime, shm_path, shm_offset, overseerAddress, NULL);
                     perror("execl");
                 }
@@ -469,9 +498,11 @@ void init(char *scenarioName, sharedMemory *memory)
 
                     ssize_t offset = offsetof(sharedMemory, firealarm);
 
-                    char shm_offset[256]; // char buffer for storing the offset
+                    /* char buffer for storing the offset */
+                    char shm_offset[256];
 
-                    snprintf(shm_offset, sizeof(shm_offset), "%zd", offset); // Convert offset to string
+                    /* Convert offset to string */
+                    snprintf(shm_offset, sizeof(shm_offset), "%zd", offset);
 
                     char tempThreshold[64], minDetections[64], detectionPeriod[64], reserved[64], fireAlarmAddr[17];
 
@@ -484,8 +515,6 @@ void init(char *scenarioName, sharedMemory *memory)
 
                     snprintf(fireAlarmAddr, 17, "%s:%d", serverAddress, fireAlarmPort);
 
-                    // printf("%s %s %s %s %s %s %s %s\n", fireAlarmAddr, tempThreshold, minDetections, detectionPeriod, reserved, shm_path, shm_offset, overseerAddress);
-
                     char *args[] = {"./firealarm", fireAlarmAddr, tempThreshold, minDetections, detectionPeriod, reserved, shm_path, shm_offset, overseerAddress, NULL};
 
                     execv("firealarm", args);
@@ -496,9 +525,11 @@ void init(char *scenarioName, sharedMemory *memory)
 
                     ssize_t offset = offsetof(sharedMemory, callpoint) + (callpointCount * sizeof(shm_callpoint));
 
-                    char shm_offset[256]; // char buffer for storing the offset
+                    /* char buffer for storing the offset */
+                    char shm_offset[256];
 
-                    snprintf(shm_offset, sizeof(shm_offset), "%zd", offset); // Convert offset to string
+                    /* Convert offset to string */
+                    snprintf(shm_offset, sizeof(shm_offset), "%zd", offset);
 
                     char reserved[64], waitTime[64], fireAlarmAddr[17];
 
@@ -511,20 +542,18 @@ void init(char *scenarioName, sharedMemory *memory)
 
                     snprintf(fireAlarmAddr, 17, "%s:%d", serverAddress, fireAlarmPort);
 
-                    // printf("%s %s %s %s\n", waitTime, shm_path, shm_offset, fireAlarmAddr);
-
                     execl("callpoint", "./callpoint", waitTime, shm_path, shm_offset, fireAlarmAddr, NULL);
                     perror("execl");
                 }
                 else if (!strcmp(token, "tempsensor"))
                 {
-                    // printf("%s\n",lineA);
-
                     ssize_t offset = offsetof(sharedMemory, tempsensor) + (tempSensorCount * sizeof(shm_tempsensor));
 
-                    char shm_offset[256]; // char buffer for storing the offset
+                    /* char buffer for storing the offset */
+                    char shm_offset[256];
 
-                    snprintf(shm_offset, sizeof(shm_offset), "%zd", offset); // Convert offset to string
+                    /* Convert offset to string */
+                    snprintf(shm_offset, sizeof(shm_offset), "%zd", offset);
 
                     char id[64], maxCondvarWait[64], maxUpdateWait[64], receiverList[64], thisTempsensorAddr[17];
 
@@ -535,48 +564,46 @@ void init(char *scenarioName, sharedMemory *memory)
                         exit(1);
                     }
 
-                    // {id} {address:port} {max condvar wait (microseconds)} {max update wait (microseconds)} {shared memory path} {shared memory offset} {receiver address:port}
-
-                    // Create {addrss:port} for this temp sensor
+                    /* Create {addrss:port} for this temp sensor */
 
                     snprintf(thisTempsensorAddr, 17, "%s:%d", serverAddress, temPort[tempSensorCount]);
 
-                    // printf("This temp sensors address is %s\n", thisTempsensorAddr);
-
                     char *argv[] = {"./tempsensor", id, thisTempsensorAddr, maxCondvarWait, maxUpdateWait, shm_path, shm_offset, NULL, NULL, NULL, NULL, NULL};
 
-                    // Create {address:port} for the every receiver in the receivers list
+                    /* Create {address:port} for the every receiver in the receivers list */
 
                     char *token, *saveptr;
-                    token = strtok_r(receiverList, " ", &saveptr); // Get the first token
-                    int receiverCount = 0;                         // Keeps track of how many receivers in the receiverList
+                    token = strtok_r(receiverList, " ", &saveptr);
+                    int receiverCount = 0;
                     while (token != NULL)
                     {
-                        // printf("Token: %s\n", token);
-                        if (token[0] == 'O') // Add overseer addr to argument list
+                        /* Add overseer addr to argument list */
+                        if (token[0] == 'O')
                         {
-                            // printf("%c is the token for token number %d\n",token[0], receiverCount);
                             argv[receiverCount + 7] = overseerAddress;
                         }
-                        else if (token[0] == 'F') // Add firealarm addr to argument list
+                        /* Add firealarm addr to argument list */
+                        else if (token[0] == 'F')
                         {
-                            // printf("%c is the token for token number %d\n",token[0], receiverCount);
+                            ;
+                            /* Create address for fire alarm */
                             char fireAlarmAddr[17];
-                            snprintf(fireAlarmAddr, 17, "%s:%d", serverAddress, fireAlarmPort); // Create address for fire alarm
+                            snprintf(fireAlarmAddr, 17, "%s:%d", serverAddress, fireAlarmPort);
 
                             argv[receiverCount + 7] = fireAlarmAddr;
                         }
-                        else if (token[0] == 'S') // Token is either S1,S2,S3.....
+                        /* Token is either S1,S2,S3..... */
+                        else if (token[0] == 'S')
                         {
-                            // printf("%c is the token for token number %d\n",token[0], receiverCount);
                             int tempsensorNo = atoi(token + 1);
                             char receiverTempsensorAddr[17];
-                            snprintf(receiverTempsensorAddr, 17, "%s:%d", serverAddress, temPort[tempsensorNo]); // Grabs port from temPort list and make address of receiver
+                            /* Grabs port from temPort list and make address of receiver */
+                            snprintf(receiverTempsensorAddr, 17, "%s:%d", serverAddress, temPort[tempsensorNo]);
 
                             argv[receiverCount + 7] = strdup(receiverTempsensorAddr);
                         }
-                        token = strtok_r(NULL, " ", &saveptr); // Get the next token
-                        receiverCount++;                       // Increment receiver count
+                        token = strtok_r(NULL, " ", &saveptr);
+                        receiverCount++;
                     }
                     execv("tempsensor", argv);
                     perror("execv");
@@ -585,7 +612,7 @@ void init(char *scenarioName, sharedMemory *memory)
         }
         else
         {
-            break; // All innit lines over
+            break;
         }
     }
     fclose(fhA);
@@ -615,8 +642,6 @@ void handleScenarioLines(char *scenarioName, sharedMemory *memory)
             // printf("Line after SCENARIO: %s\n", lineA);
             if (strstr(lineA, "CARD_SCAN"))
             {
-                // printf("Cardscan line is %s\n", lineA);
-
                 char timestamp[64], num[64], code[64];
                 /* Check that sscanf is successful */
                 if (sscanf(lineA, "%s CARD_SCAN %s %s", timestamp, num, code) != 3)
@@ -627,7 +652,6 @@ void handleScenarioLines(char *scenarioName, sharedMemory *memory)
 
                 int timeStamp = atoi(timestamp);
                 int cardReaderIndex = atoi(num);
-                // printf("Card reader index is %d\n",cardReaderIndex);
 
                 if (waitTillTimestamp(&startTime, timeStamp) == 0)
                 {
@@ -638,15 +662,12 @@ void handleScenarioLines(char *scenarioName, sharedMemory *memory)
                 {
                     pthread_mutex_lock(&memory->cardreader[cardReaderIndex].mutex);
                     memcpy(memory->cardreader[cardReaderIndex].scanned, code, 16);
-                    // printf("Scanned hash from card reader is %s for cardreader index %d\n", memory->cardreader[cardReaderIndex].scanned, cardReaderIndex);
                     pthread_mutex_unlock(&memory->cardreader[cardReaderIndex].mutex);
                     pthread_cond_signal(&memory->cardreader[cardReaderIndex].scanned_cond);
                 }
             }
             else if (strstr(lineA, "CALLPOINT_TRIGGER"))
             {
-                // printf("CALLPOINT_TRIGGER line is %s\n", lineA);
-
                 char timestamp[64], num[64];
                 /* Check that sscanf is successful */
                 if (sscanf(lineA, "%s CALLPOINT_TRIGGER %s", timestamp, num) != 2)
@@ -712,13 +733,13 @@ int waitTillTimestamp(struct timeval *startTime, int microseconds_to_wait)
 {
     struct timeval current_time;
 
-    // Start time in microsec
+    /* Start time in microsec */
     long startTime_microsec = startTime->tv_sec * 1000000 + startTime->tv_usec;
 
-    // Get the current time
+    /* Get the current time */
     gettimeofday(&current_time, NULL);
 
-    // Current time in micro secs
+    /* Current time in micro secs */
     long currentTime_microsec = current_time.tv_sec * 1000000 + current_time.tv_usec;
 
     long timeElapsed_microsec = currentTime_microsec - startTime_microsec;
@@ -727,60 +748,50 @@ int waitTillTimestamp(struct timeval *startTime, int microseconds_to_wait)
     {
         long remaining_microseconds = microseconds_to_wait - timeElapsed_microsec;
 
-        // Sleep for the remaining time
+        /* Sleep for the remaining time */
         usleep(remaining_microseconds);
         return 1;
     }
     else
     {
-        return 1; // Dont wait
+        return 1;
     }
 }
 
-// //<summary>
-// // Thread function to handle the door scenario
-// //</summary>
+//<summary>
+// Thread function to handle the door scenario
+//</summary>
 void *handleDoorScenario(void *arg)
 {
     struct door_data doorData = *(struct door_data *)arg;
-    // printf("Im in the door thread\n");
-
-    // Lock the mutex to protect shared data
+    /* Lock the mutex to protect shared data */
     pthread_mutex_lock(&doorData.door->mutex);
     while (!(ifshutdown))
     {
-        // Wait on cond_start
+        /* Wait on cond_start */
         pthread_cond_wait(&doorData.door->cond_start, &doorData.door->mutex);
 
-        // printf("Cond start signaled\n");
-
-        // Upon waking up, check the status
+        /* Upon waking up, check the status */
         if (doorData.door->status == 'O' || doorData.door->status == 'C')
         {
-            // printf("Door status is O or C\n");
-            // Wait on cond_start again
+            /* Wait on cond_start again */
             pthread_cond_wait(&doorData.door->cond_start, &doorData.door->mutex);
         }
         else
         {
-            // printf("Door status is not O or C\n");
-
-            // Sleep for {door open/close time} microseconds
+            /* Sleep for {door open/close time} microseconds */
             usleep(doorData.door_open_duration);
 
-            // Change the status
+            /* Change the status */
             if (doorData.door->status == 'o')
             {
                 doorData.door->status = 'O';
-                // printf("Door status changed to '0'\n");
             }
             else if (doorData.door->status == 'c')
             {
                 doorData.door->status = 'C';
-                // printf("Door status changed to 'C'\n");
             }
-            // printf("Cond end signaled\n");
-            // Signal cond_end to notify others that the operation is complete
+            /* Signal cond_end to notify others that the operation is complete */
             pthread_cond_signal(&doorData.door->cond_end);
         }
     }

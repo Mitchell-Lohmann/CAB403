@@ -27,14 +27,14 @@ int main(int argc, char **argv)
     }
 
     /* Initialise input arguments */
-    int resend_delay = atoi(argv[1]);
-    const char *shm_path = argv[2];
+    int resendDelay = atoi(argv[1]);
+    const char *shmPath = argv[2];
     int shm_offset = atoi(argv[3]);
-    char firealarm_addr[10];
-    int firealarm_port = splitAddressPort(argv[4], firealarm_addr);
+    char firealarmAddr[10];
+    int firealarmPort = splitAddressPort(argv[4], firealarmAddr);
 
     /* Open shared memory segment */
-    int shm_fd = shm_open(shm_path, O_RDWR, 0666); /* Creating for testing purposes */
+    int shm_fd = shm_open(shmPath, O_RDWR, 0666);
     if (shm_fd == -1)
     {
         perror("shm_open()");
@@ -83,9 +83,9 @@ int main(int argc, char **argv)
     (void)memset(&destaddr, 0, sizeof(destaddr));
     destaddr.sin_family = AF_INET;
     destaddr.sin_port = htons((in_port_t)firealarm_port);
-    if (inet_pton(AF_INET, firealarm_addr, &destaddr.sin_addr) != 1)
+    if (inet_pton(AF_INET, firealarmAddr, &destaddr.sin_addr) != 1)
     {
-        fprintf(stderr, "inet_pton(%s)\n", firealarm_addr);
+        fprintf(stderr, "inet_pton(%s)\n", firealarmAddr);
         exit(1);
     }
 
@@ -98,11 +98,11 @@ int main(int argc, char **argv)
             /* Sends UDP Datagram */
             (void)sendto(sendfd, datagram.header, (size_t)strlen(datagram.header), 0, (const struct sockaddr *)&destaddr, destaddr_len);
             /* Sleep for {resend delay} */
-            (void)usleep(resend_delay);
+            (void)usleep(resendDelay);
         }
         else
         {
             (void)pthread_cond_wait(&shared->cond, &shared->mutex);
         }
-    } /* Loop ends */
-}
+    }
+} /* End main */

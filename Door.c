@@ -16,33 +16,8 @@
 
 /* Code is written to be complaint with saftey standards  MISRA-C and IEC 61508. */
 
-
-/* Function Definition */
-//<summary>
-// Gets the status of the door from the shared memory segment.
-//</summary>
-char get_door_status(shm_door *shared)
-{
-    char door_status;
-    /* Lock mutex, store current status of door, unlock mutex */
-    pthread_mutex_lock(&shared->mutex);
-    door_status = shared->status;
-    pthread_mutex_unlock(&shared->mutex);
-
-    return door_status;
-}
-
-//<summary>
-// Chnages door status, takes input of shared memory location and status to change
-// to. Returns no value.
-//</summary>
-void change_door_status(shm_door *shared, char status_to_changeto)
-{
-    pthread_mutex_lock(&shared->mutex);
-    shared->status = status_to_changeto;
-    pthread_mutex_unlock(&shared->mutex);
-}
-
+/* Function declaration */
+char getDoorStatus(shm_door *shared);
 
 int main(int argc, char **argv)
 {
@@ -146,7 +121,7 @@ int main(int argc, char **argv)
     shm_door *shared = (shm_door *)(shm + shm_offset);
 
     /* Normal operations for Door */
-    char current_door_status = get_door_status(shared);
+    char currentDoorStatus = getDoorStatus(shared);
     char *respose;
     int emergency_mode = 0; /* Default: Not in emergency mode */
 
@@ -174,7 +149,7 @@ int main(int argc, char **argv)
 
         if (strcmp(buff, "OPEN#") == 0)
         {
-            if (current_door_status == 'O')
+            if (currentDoorStatus == 'O')
             {
                 /* Door already open sends "ALREADY#" to overeer */
                 respose = "ALREADY#";
@@ -183,7 +158,7 @@ int main(int argc, char **argv)
                 sendMessage(client_socket, respose);
                 closeConnection(client_socket);
             }
-            else if (current_door_status == 'C')
+            else if (currentDoorStatus == 'C')
             {
                 respose = "OPENING#";
 
@@ -205,7 +180,7 @@ int main(int argc, char **argv)
                 closeConnection(client_socket);
 
                 /* Changes current door status */
-                current_door_status = get_door_status(shared);
+                currentDoorStatus = getDoorStatus(shared);
             }
             else
             {
@@ -215,7 +190,7 @@ int main(int argc, char **argv)
         }
         else if ((strcmp(buff, "CLOSE#") == 0) && emergency_mode == 0)
         {
-            if (current_door_status == 'C')
+            if (currentDoorStatus == 'C')
             {
                 /* Door already open sends "ALREADY#" to overeer */
                 respose = "ALREADY#";
@@ -224,7 +199,7 @@ int main(int argc, char **argv)
                 /* Close connection */
                 closeConnection(client_socket);
             }
-            else if (current_door_status == 'O')
+            else if (currentDoorStatus == 'O')
             {
                 respose = "CLOSING#";
 
@@ -246,7 +221,7 @@ int main(int argc, char **argv)
                 closeConnection(client_socket);
 
                 /* Changes current door status */
-                current_door_status = get_door_status(shared);
+                currentDoorStatus = getDoorStatus(shared);
             }
             else
             {
@@ -256,7 +231,7 @@ int main(int argc, char **argv)
         }
         else if (strcmp(buff, "OPEN_EMERG#") == 0)
         {
-            if (current_door_status == 'C')
+            if (currentDoorStatus == 'C')
             {
                 pthread_mutex_lock(&shared->mutex);
                 shared->status = 'o';
@@ -271,9 +246,9 @@ int main(int argc, char **argv)
                 closeConnection(client_socket);
 
                 /* Changes current door status */
-                current_door_status = get_door_status(shared);
+                currentDoorStatus = getDoorStatus(shared);
             }
-            else if (current_door_status == 'O')
+            else if (currentDoorStatus == 'O')
             {
                 /* Set emergency mode */
                 emergency_mode = 1;
@@ -282,7 +257,7 @@ int main(int argc, char **argv)
                 closeConnection(client_socket);
 
                 /* Changes current door status */
-                current_door_status = get_door_status(shared);
+                currentDoorStatus = getDoorStatus(shared);
             }
         }
         /* Don't have to implement for group of 2 */
@@ -305,8 +280,21 @@ int main(int argc, char **argv)
             perror("Received message incorrect format");
             exit(1);
         }
-    } /* End main */
+    }
 
-    printf("Program finishes\n"); /* Debug */
-    // return 0;
+} /* End main */
+
+/* Function definition */
+//<summary>
+// Gets the status of the door from the shared memory segment.
+//</summary>
+char getDoorStatus(shm_door *shared)
+{
+    char door_status;
+    /* Lock mutex, store current status of door, unlock mutex */
+    pthread_mutex_lock(&shared->mutex);
+    door_status = shared->status;
+    pthread_mutex_unlock(&shared->mutex);
+
+    return door_status;
 }
